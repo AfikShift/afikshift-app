@@ -1,6 +1,8 @@
 """DutyConnect API — Milestone 1: accounts & foundations."""
 import os
+import hmac
 import uuid
+import asyncio
 import hashlib
 import secrets
 import logging
@@ -34,7 +36,8 @@ ACCESS_MINUTES = 15
 REFRESH_DAYS = 30
 CODE_MINUTES = 15
 CODE_MAX_ATTEMPTS = 5
-LOGIN_MAX_FAILS = 5
+LOGIN_MAX_FAILS = 5  # per account + IP
+ACCOUNT_MAX_FAILS = 10  # per account, any IP/device
 DEV_LOG_CODES = os.environ.get("DEV_LOG_CODES", "false").lower() == "true"
 
 # Feature flags per plan. Subscriptions (Phase 4) only change the user's `plan`;
@@ -224,6 +227,26 @@ async def deliver(send, *args):
         logger.warning(f"Auth email not delivered: {getattr(e, 'detail', e)}")
 
 
+_bg_tasks: set = set()
+
+
+def send_later(send, *args):
+    """Deliver auth email in the background so response time doesn't reveal whether an account exists."""
+    t = asyncio.create_task(deliver(send, *args))
+    _bg_tasks.add(t)
+    t.add_done_callback(_bg_tasks.discard)
+
+
+def account_hash(email: str) -> str:
+    return hmac.new(JWT_SECRET.encode(), email.strip().lower().encode(), hashlib.sha256).hexdigest()
+
+
+def client_ip(request: Request) -> str:
+    # Secondary signal only; X-Forwarded-For can be spoofed, so the per-account limit is the real control.
+    xff = request.headers.get("x-forwarded-for", "")
+    return xff.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+
+
 GENERIC_SENT = {"message": "If the details are valid, a code has been sent to the email address."}
 
 
@@ -260,10 +283,11 @@ async def register(body: RegisterIn):
     email = body.email.lower()
     existing = await db.users.find_one({"email": email}, {"_id": 0})
     if existing:
-        # Avoid account enumeration: same response. Resend code only if still unverified.
+        # Avoid account enumeration: same response and similar timing. Resend code only if still unverified.
+        hash_password(body.password)
         if not existing.get("email_verified") and not await recently_sent(existing["id"], "verify"):
             code = await create_code(existing["id"], "verify")
-            await deliver(send_verification_code, email, existing["full_name"], code)
+            send_later(send_verification_code, email, existing["full_name"], code)
         return GENERIC_SENT
     uid = str(uuid.uuid4())
     await db.users.insert_one({
@@ -273,7 +297,7 @@ async def register(body: RegisterIn):
         "email_verified": False, "created_at": now(), "updated_at": now(),
     })
     code = await create_code(uid, "verify")
-    await deliver(send_verification_code, email, body.full_name.strip(), code)
+    send_later(send_verification_code, email, body.full_name.strip(), code)
     return GENERIC_SENT
 
 
@@ -282,7 +306,7 @@ async def resend_verification(body: EmailIn):
     user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
     if user and not user.get("email_verified") and not await recently_sent(user["id"], "verify"):
         code = await create_code(user["id"], "verify")
-        await deliver(send_verification_code, user["email"], user["full_name"], code)
+        send_later(send_verification_code, user["email"], user["full_name"], code)
     return GENERIC_SENT
 
 
@@ -298,23 +322,29 @@ async def verify_email(body: VerifyIn):
 @api.post("/auth/login")
 async def login(body: LoginIn, request: Request):
     email = body.email.lower()
-    ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0]
-    key = digest(f"{email}:{ip}")
-    attempt = await db.login_attempts.find_one({"key": key})
-    if attempt and attempt["count"] >= LOGIN_MAX_FAILS and attempt["expires_at"] > now():
-        raise HTTPException(429, "Too many attempts. Please try again in 15 minutes.")
+    # Primary control: per-account counter (independent of IP/device, applied to unknown emails too).
+    # Secondary: per account+IP counter. The account lock is temporary (15 min) and cleared by a
+    # successful password reset, so an attacker cannot lock a real officer out permanently.
+    acct_key = "acct:" + account_hash(email)
+    ip_key = "ip:" + digest(f"{email}:{client_ip(request)}")
+    for key, limit in ((acct_key, ACCOUNT_MAX_FAILS), (ip_key, LOGIN_MAX_FAILS)):
+        attempt = await db.login_attempts.find_one({"key": key})
+        if attempt and attempt["count"] >= limit and attempt["expires_at"] > now():
+            raise HTTPException(429, "Too many attempts. Please try again later or reset your password.")
     user = await db.users.find_one({"email": email}, {"_id": 0})
     ok = verify_password(body.password, user["password_hash"] if user else _DUMMY_HASH)
     if not user or not ok:
-        await db.login_attempts.update_one(
-            {"key": key}, {"$inc": {"count": 1}, "$setOnInsert": {"expires_at": now() + timedelta(minutes=15)}},
-            upsert=True)
+        for key in (acct_key, ip_key):
+            await db.login_attempts.update_one(
+                {"key": key}, {"$inc": {"count": 1}, "$setOnInsert": {"expires_at": now() + timedelta(minutes=15)}},
+                upsert=True)
         raise HTTPException(401, "Incorrect email or password")
-    await db.login_attempts.delete_one({"key": key})
+    await db.login_attempts.delete_many({"key": {"$in": [acct_key, ip_key]}})
     if not user.get("email_verified"):
+        # Only reachable with the correct password, so it reveals nothing to someone guessing emails.
         if not await recently_sent(user["id"], "verify"):
             code = await create_code(user["id"], "verify")
-            await deliver(send_verification_code, email, user["full_name"], code)
+            send_later(send_verification_code, email, user["full_name"], code)
         raise HTTPException(403, "email_not_verified")
     return await issue_tokens(user["id"])
 
@@ -341,7 +371,7 @@ async def forgot_password(body: EmailIn):
     user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
     if user and not await recently_sent(user["id"], "reset"):
         code = await create_code(user["id"], "reset")
-        await deliver(send_reset_code, user["email"], user["full_name"], code)
+        send_later(send_reset_code, user["email"], user["full_name"], code)
     return GENERIC_SENT
 
 
@@ -353,6 +383,7 @@ async def reset_password(body: ResetIn):
     await db.users.update_one({"id": user["id"]}, {"$set": {
         "password_hash": hash_password(body.new_password), "email_verified": True, "updated_at": now()}})
     await db.sessions.update_many({"user_id": user["id"]}, {"$set": {"revoked": True}})
+    await db.login_attempts.delete_one({"key": "acct:" + account_hash(user["email"])})
     return {"ok": True}
 
 
@@ -411,6 +442,7 @@ DATE_RE = r"^\d{4}-\d{2}-\d{2}$"
 UUID_RE = r"^[0-9a-fA-F-]{8,64}$"
 # UK prisoner number format (e.g. A1234BC) — blocked to avoid collecting prisoner data.
 PRISONER_NO_RE = re.compile(r"\b[A-Za-z]\d{4}[A-Za-z]{2}\b")
+SENSITIVE_WORDS_RE = re.compile(r"\b(prisoner|inmate|nomis|pnc|cell\s*\d+|wing\s*[a-z]?\d+)\b", re.I)
 
 
 def shift_minutes(start: str, end: str) -> int:
@@ -440,8 +472,8 @@ class ShiftData(BaseModel):
         if self.break_minutes >= shift_minutes(self.start_time, self.end_time):
             raise ValueError("Unpaid break must be shorter than the shift")
         for v in (self.location, self.officer_name):
-            if PRISONER_NO_RE.search(v):
-                raise ValueError("Do not enter prisoner numbers or identifying details")
+            if PRISONER_NO_RE.search(v) or SENSITIVE_WORDS_RE.search(v):
+                raise ValueError("Do not enter prisoner details, cell/wing numbers or operational records")
         self.location = self.location.strip()
         return self
 
@@ -526,8 +558,9 @@ app.include_router(api)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=False,
-    allow_origins=["*"],
-    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
+    # Native iOS/Android apps don't send an Origin header, so CORS only affects browsers.
+    allow_origins=[o.strip() for o in os.environ["CORS_ORIGINS"].split(",") if o.strip()],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 

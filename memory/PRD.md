@@ -36,6 +36,17 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Home live: Next Shift, monthly completed/hours/estimated/not-yet-paid, booked/projected
 - DEV_LOG_CODES=false; logs verified free of codes/passwords/tokens
 
+### Security hardening (2026-10-11) ✅ tested (58/58 backend incl. 19 new security tests)
+- Per-account login limit (10 fails/15 min, any IP) + secondary per account+IP (5); temporary, cleared by password reset
+- Auth emails sent in background (consistent timing); identical 202/401 responses for known/unknown/unverified
+- CORS restricted via CORS_ORIGINS env (native apps unaffected — no Origin header)
+- Prisoner/operational data guard: prisoner numbers, prisoner/inmate/NOMIS/PNC, cell/wing numbers blocked (client + server)
+
+## Pre-launch checklist
+- Rotate JWT_SECRET and email key; keep DEV_LOG_CODES=false; set CORS_ORIGINS for production web origin (if any)
+- Real-device tests: biometrics, date/time pickers, airplane-mode offline sync
+- Confirm Emergent email limits/charges
+
 ## Backlog
 - P0 M2: PP shifts CRUD/duplicate/cancel/complete, overnight calc, overlap warnings, rate snapshot, offline-first queue + sync + conflict UI, month/week calendar, real sync badge
 - P0 M3: earnings dashboard (month/quarter/year), payments, outstanding, CSV/PDF export with filters, data export, DB backup/restore script, self-hosting README

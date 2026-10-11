@@ -29,6 +29,7 @@ export const PAYMENT_LABEL: Record<PaymentStatus, string> = { pending: "Pending"
 export const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PRISONER_NO_RE = /\b[A-Za-z]\d{4}[A-Za-z]{2}\b/;
+const SENSITIVE_WORDS_RE = /\b(prisoner|inmate|nomis|pnc|cell\s*\d+|wing\s*[a-z]?\d+)\b/i;
 
 export function toMinutes(t: string) {
   return parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10);
@@ -71,8 +72,11 @@ export function validateShift(s: ShiftData): Record<string, string> {
   }
   if (!Number.isInteger(s.break_minutes) || s.break_minutes < 0 || s.break_minutes > 720) e.break_minutes = "Break must be 0–720 minutes.";
   if (s.location.length > 60) e.location = "Keep the location under 60 characters.";
-  if (PRISONER_NO_RE.test(s.location)) e.location = "Don't enter prisoner numbers or identifying details.";
+  if (PRISONER_NO_RE.test(s.location) || SENSITIVE_WORDS_RE.test(s.location))
+    e.location = "Don't enter prisoner details, cell/wing numbers or operational records.";
   if (!s.officer_name.trim()) e.officer_name = "Officer name is required.";
+  else if (PRISONER_NO_RE.test(s.officer_name) || SENSITIVE_WORDS_RE.test(s.officer_name))
+    e.officer_name = "Enter your own name only — no prisoner details.";
   return e;
 }
 
