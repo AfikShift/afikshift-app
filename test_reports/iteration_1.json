@@ -1,0 +1,69 @@
+{
+  "summary": "Milestone 1 Accounts & Foundations verified end-to-end. Backend: 23/24 pytest tests passed, 1 skipped (reset-password flow) because the Emergent email proxy returned 429 → backend leaked 502 instead of the generic 202 (same bug observed on /auth/register). All auth state transitions behave correctly: register→verify issues tokens, login 401/403/429 lockout, refresh rotation (old token invalidated), logout, reset-password revokes sessions, change-password revokes sessions & reissues tokens, GET/PATCH /api/me validations (rate >500 rejected, invalid category rejected, hourly_rate round/clear), DELETE /api/me (wrong pw 400, correct removes user and blocks subsequent login). Frontend (390x844 mobile viewport): welcome → sign-in → home works; set-rate banner present before rate, hidden after; Profile edit saves £30.00/hr and Account row reflects it; Messages card opens Messages screen; Security row navigates to Security screen (Face ID switch, change password form, delete account row visible); Sign-out returns to welcome without a confirm dialog; tab navigation across Home/Shifts/Earnings/Account works. Deprecated packages detected: none (expo-av/expo-barcode-scanner/expo-background-fetch not used).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/register",
+        "issue": "Returns 502 'Failed to send email' when the Emergent email proxy is rate-limited (429 'rate_limited'). Should swallow the delivery failure and always return the generic 202 — otherwise it (a) leaks email-send telemetry (enumeration signal: distinguishes 'email tried & failed' from the normal 202), and (b) is user-visible: the Register screen displays 'Something went wrong. Please try again.' even though the user is persisted in Mongo and a code is in db.action_codes. See server.py register(); email_service.send_email() currently only maps insufficient_credits/integration_disabled/daily_limit_reached to a soft response — add 'rate_limited' (and generally swallow for 202-generic endpoints).",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "POST /api/auth/forgot-password",
+        "issue": "Same root cause as register: Emergent proxy 429 → backend 502 instead of generic 202. Causes the pytest TestResetPassword to skip when rate-limited. Fix in email_service._post / send_email error-mapping or wrap the call in forgot_password/register/resend-verification with try/except so the generic 202 is always returned (log the delivery failure).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/register",
+        "issue": "RegisterIn.full_name is not stripped before uniqueness/duplicate checks. Not blocking; strip happens at insert."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Register (new user)",
+        "issue": "When backend returns 502 due to email proxy rate-limit (see backend_issues), the Register screen shows 'Something went wrong. Please try again.' and the user cannot proceed to the verify screen even though the account was created. Backend fix will resolve this.",
+        "affected_testIDs": ["register-screen", "register-error-text"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "welcome",
+        "issues": ["First paint sometimes shows an empty hero before DutyConnect branding + bullets appear (observed as a near-blank screen in one capture). After full load the welcome screen renders correctly."]
+      }
+    ],
+    "react_native_issues": [
+      {"component": "Shadow styles (multiple screens)", "issue": "Console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' Replace shadow* RN style props with boxShadow (RN Web) or platform-split styles."},
+      {"component": "pointerEvents prop", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents' — move pointerEvents to the style object on affected components."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_dutyconnect_backend.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Backend: in email_service.send_email treat 'rate_limited' like insufficient_credits/daily_limit_reached (soft-fail), and for generic 202 endpoints (/auth/register, /auth/resend-verification, /auth/forgot-password) always return 202 even on email failure (log the error). This fixes both the enumeration signal and the user-facing register error.",
+    "Frontend: migrate deprecated RN-Web style props: shadow* → boxShadow and props.pointerEvents → style.pointerEvents.",
+    "Confirm welcome screen hero/branding renders on first paint (hydration flash)."
+  ],
+  "critical_code_review_comments": [
+    "server.py: register() and forgot_password() place send_email outside a try/except — any 502/503 bubbles up and breaks the generic-202 contract.",
+    "server.py register duplicate branch: if existing unverified user has an in-flight verify code (recently_sent) the response is 202 but no new code is sent — this is correct, just verify UI messaging matches.",
+    "email_service.send_email: error-code allowlist is hardcoded; prefer always-swallow for 202-generic callers via a parameter (e.g., swallow=True).",
+    "No file exceeds 700 lines; Mongo ObjectId correctly excluded via projection; env vars used throughout."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py (new)",
+    "/app/backend/tests/test_dutyconnect_backend.py (new)"
+  ],
+  "success_rate": {"backend": "95.8% (23/24 passed, 1 skipped due to email proxy rate-limit)", "frontend": "100% of critical flows (login, home banner, profile set-rate, account rate reflection, messages, security, signout, tabs)"},
+  "seed_data_creation": "Tests create ephemeral delivered+t1_<tag>@resend.dev accounts and delete them in teardown. Main user delivered+t1@resend.dev password restored to Testpass123, hourly_rate reset to None, login_attempts cleared.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with `-n 0` (serial) because class/method tests share the single main user and the login-lockout test will race with concurrent main_user_tokens fixtures otherwise. Email proxy on this environment is heavily rate-limited (~1 req/sec sustained → 429); space email-sending calls or expect transient 502s from register/forgot-password until the backend soft-fail fix lands. Dev codes are in /var/log/supervisor/backend.err.log — grep '[DEV] <kind> code for user <uid>:'. If main user gets locked out: db.login_attempts.delete_many({}) in test_database.",
+  "rca_of_issue": "Both failing/skipped tests have the same RCA: the Emergent-managed email proxy (POST /api/v1/email/send) returns 429 {code: 'rate_limited'} when called in bursts (observed throughput ~1 req/s). email_service.send_email maps 429/'rate_limited' to a generic HTTPException(502). register(), resend-verification() and forgot_password() invoke send_email without catching, so the 502 propagates. For the 202-generic contract this (1) leaks whether the system attempted a send, (2) surfaces to the frontend as a hard error on the Register screen even though the user has been persisted. Mitigation: catch delivery errors inside the three generic endpoints and still return the GENERIC_SENT payload with status 202; log the delivery failure for ops. Reproduction: run pytest serially twice in a minute, or in UI flow register two accounts <1s apart."
+}

@@ -1,0 +1,154 @@
+{
+  "app_name": "DutyConnect",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "A premium, professional, and friction-free utility that feels native and deeply reliable.",
+  "color": {
+    "surface": "#FFFFFF",
+    "onSurface": "#111827",
+    "surfaceSecondary": "#F4F5F7",
+    "onSurfaceSecondary": "#374151",
+    "surfaceTertiary": "#E5E7EB",
+    "onSurfaceTertiary": "#4B5563",
+    "surfaceInverse": "#0A192F",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#0A192F",
+    "brandPrimary": "#0A192F",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#008080",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#E0F2F2",
+    "onBrandTertiary": "#004D4D",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "info": "#008080",
+    "onInfo": "#FFFFFF",
+    "border": "#E5E7EB",
+    "borderStrong": "#D1D5DB",
+    "divider": "#F3F4F6",
+    "muted": "#6B7280"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Plus Jakarta Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical breathing room. Use 16pt (lg) padding on screen roots. Cards should have 16pt inner padding. Group related fields tightly (2-4pt), with larger gaps (16-24pt) between sections.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "1",
+  "navigation": "bottom_tabs",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use blur on bottom tab bar.",
+      "Use frosted glass on sticky headers over scrolling content (like in the calendar view or shift list)."
+    ],
+    "dont's": [
+      "Do not use glass on form inputs or standard list rows.",
+      "Do not use blur on Android if performance drops; fallback to solid surfaceSecondary."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home",
+      "purpose": "A high-level dashboard showing the next upcoming shift, monthly earnings snapshot, and quick actions.",
+      "states": {
+        "loading": "Centered spinner",
+        "empty": "No upcoming shifts illustration with 'Add Shift' CTA",
+        "error": "Failed to load dashboard data. Retry button."
+      },
+      "layout": "Header with Sync Status badge (Saved/Syncing/Synced). Hero card for 'Next Shift' with a subtle abstract navy background and gradient scrim. Row of quick action pills (Add Shift, Messages). Monthly PP Summary card. 'Messages' accessible here instead of a bottom tab to keep tabs max 4."
+    },
+    {
+      "name": "My PP Shifts",
+      "purpose": "Manage shifts with a calendar and list view, optimizing for fast data entry and scannability.",
+      "states": {
+        "loading": "Skeleton rows for shift list",
+        "empty": "Empty calendar / list view indicating no shifts this month.",
+        "error": "Failed to load shifts. Retry button."
+      },
+      "layout": "Sticky glass header with Month/Week toggle. Calendar grid highlighting days with shifts. List of shifts below. Duty types color-coded (Teal for Bed Watch, Navy for Constant Watch). Floating Action Button (FAB) or sticky bottom CTA to 'Add Shift'. Add/Edit form should be a full-screen bottom sheet with iOS grouped-list style for inputs to handle the dense fields cleanly."
+    },
+    {
+      "name": "Earnings",
+      "purpose": "Track financial totals and payments with clear, minimalist visualization.",
+      "states": {
+        "loading": "Skeleton for chart and metric cards",
+        "empty": "Zero earnings state with soft illustration.",
+        "error": "Failed to load earnings. Retry button."
+      },
+      "layout": "Hero card for 'Expected Gross' and 'Paid'. Horizontal scroll for filter pills (This Month, Quarter, Annual). Minimalist bar chart or breakdown list. Dedicated section for Payment Tracking (amounts received). Disclaimer at the bottom in muted text."
+    },
+    {
+      "name": "Account",
+      "purpose": "Manage profile, security, app preferences, and data exports.",
+      "states": {
+        "loading": "Centered spinner",
+        "empty": "N/A",
+        "error": "Error loading profile."
+      },
+      "layout": "Profile header (initials avatar or generic professional icon). iOS-style grouped settings list: Professional Category, Hourly Rate, Biometric Toggle, Export Data (CSV/PDF), Subscription Status (Free), Support, Delete Account."
+    }
+  ],
+  "images": {
+    "home_hero_bg": {
+      "url": "https://images.unsplash.com/photo-1597773150796-e5c14ebecbf5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjBuYXZ5JTIwYmx1ZSUyMHRleHR1cmUlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc5MTcyNzMzMXww&ixlib=rb-4.1.0&q=85",
+      "dark": "https://images.unsplash.com/photo-1614850523011-8f49ffc73908?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2OTV8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGRhcmslMjBuYXZ5JTIwYmx1ZSUyMHRleHR1cmUlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc5MTcyNzMzMXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract deep navy blue texture"
+    },
+    "earnings_empty": {
+      "url": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwZmluYW5jaWFsJTIwY2hhcnQlMjBncmFwaCUyMGRhc2hib2FyZHxlbnwwfHx8fDE3OTE3MjczMzF8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Minimalist financial chart dashboard"
+    },
+    "account_cover": {
+      "url": "https://images.unsplash.com/photo-1581568736305-49a04e012c13?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBzZWN1cml0eSUyMG9mZmljZXIlMjB3b3JraW5nfGVufDB8fHx8MTc5MTcyNzMzMXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Professional security officer"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Follow 1 iOS-Native Clean layout strictly: group related form inputs like standard iOS settings screens to reduce clutter, especially on the 'Add Shift' screen which has many fields.",
+    "Implement the 4-tab navigation (Home, Shifts, Earnings, Account). Place the 'Messages' entry point prominently on the Home dashboard to respect the 4-tab maximum.",
+    "For Dark Mode: Implement dynamic switching. In Dark Mode, switch the surface to deep navy (#0A111F or similar) and use Teal (#14B8A6) as the primary CTA color to ensure high contrast and readability against the dark background. Navy buttons on Navy backgrounds will not work.",
+    "Offline-first Sync Status: Show a persistent sync status indicator (e.g., small badge or icon with text: Saved Locally, Syncing, Synced) in the Home screen header.",
+    "Earnings Dashboard: Include the disclaimer 'Figures are estimates, not official payroll' below the charts using the 'muted' text token.",
+    "Platform Specifics: On the Messages screen, if the user is on iOS, explicitly display the text 'SMS forwarding not available on iPhone' as requested. On Android, note 'coming soon'.",
+    "Shift Entry Form: Use pre-filled defaults (like officer name from profile, and hourly PP rate) and implement overlap warnings dynamically. Handle overnight shifts logically by splitting hours across midnight if required by the logic.",
+    "Color-coding Duties: Bed Watch = Teal, Constant Watch = Navy, Other = Neutral/Grey. Ensure text contrast on these colored badges clears WCAG AA."
+  ]
+}
