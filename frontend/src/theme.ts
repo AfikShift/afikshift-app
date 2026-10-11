@@ -31,6 +31,15 @@ const light = {
   onHeroMuted: "#9FB3C8",
   heroAccent: "#2DD4BF",
 
+  dutyBed: "#008080",
+  dutyBedSoft: "#E0F2F2",
+  dutyConstant: "#0A192F",
+  dutyConstantSoft: "#E3E8F0",
+  dutyOther: "#6B7280",
+  dutyOtherSoft: "#EEF0F3",
+  night: "#4F46E5",
+  day: "#D97706",
+
   success: "#0E9F6E",
   onSuccess: "#FFFFFF",
   successSoft: "#E3F7EF",
@@ -74,6 +83,15 @@ const dark: ThemeColors = {
   onHero: "#FFFFFF",
   onHeroMuted: "#9FB3C8",
   heroAccent: "#2DD4BF",
+
+  dutyBed: "#2DD4BF",
+  dutyBedSoft: "#0F2E33",
+  dutyConstant: "#7BA7E0",
+  dutyConstantSoft: "#16243B",
+  dutyOther: "#9CA3AF",
+  dutyOtherSoft: "#1E2635",
+  night: "#A5B4FC",
+  day: "#FBBF24",
 
   success: "#34D399",
   onSuccess: "#05261A",

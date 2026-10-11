@@ -41,13 +41,19 @@ def _tail_log(lines: int = 400) -> str:
 
 
 def read_code_for_user(user_id: str, kind: str = "verify", retries: int = 10, delay: float = 0.5) -> str | None:
-    """Pull latest '[DEV] <kind> code for user <uid>: 123456' from backend logs."""
-    pat = re.compile(rf"\[DEV\] {re.escape(kind)} code for user {re.escape(user_id)}: (\d{{6}})")
+    """Codes are never logged (DEV_LOG_CODES=false). Tests replace the stored hash with a known code."""
+    import hashlib
+    import os
+    from pymongo import MongoClient
+    from dotenv import load_dotenv
+    load_dotenv("/app/backend/.env")
+    db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+    code = "246810"
     for _ in range(retries):
-        text = _tail_log(600)
-        matches = pat.findall(text)
-        if matches:
-            return matches[-1]
+        r = db.action_codes.update_one({"user_id": user_id, "kind": kind},
+                                       {"$set": {"hash": hashlib.sha256(code.encode()).hexdigest(), "attempts": 0}})
+        if r.matched_count:
+            return code
         time.sleep(delay)
     return None
 

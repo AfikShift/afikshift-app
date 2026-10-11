@@ -36,7 +36,7 @@ export default function TabsLayout() {
   }
 
   const icon = (on: React.ComponentProps<typeof Ionicons>["name"], off: React.ComponentProps<typeof Ionicons>["name"]) => {
-    const TabIcon = ({ focused, color }: { focused: boolean; color: string }) => (
+    const TabIcon = ({ focused, color }: { focused: boolean; color: any }) => (
       <Ionicons name={focused ? on : off} size={24} color={color} />
     );
     return TabIcon;

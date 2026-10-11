@@ -1,0 +1,62 @@
+{
+  "summary": "Milestone 2 PP Shift Manager tested on web (390x844). Backend: 39/39 pytest tests passing — 24 Milestone-1 regression + 15 new /api/shifts/sync tests (auth, create+compute 11h/£330 for 20:00-08:00 br60 @30, overnight 22:00-06:00 br30 = 7.5h, day 08:00-20:00 br0 = 12h, hourly_rate=null -> estimated null, idempotency via change_id duplicate with no second record and version unchanged, update with matching base_version increments v+1, stale base_version returns conflict with server copy, delete tombstone excluded from initial pull (since=null) but included in incremental pull, cross-user id rejected, validation 422 for finish==start, break>=duration, invalid '25:00' time, prisoner-number 'A1234BC' in location, and log hygiene: no [DEV] codes/passwords/tokens found in backend.err.log or backend.out.log after register + forgot-password). Frontend: login OK; Home 'Add Shift' -> /shift-form; Night preset auto-fills 20:00-08:00; live summary shows '11.00 h' and '£330.00'; shift-overnight-note shown; Save -> back on Home, home-next-shift-card visible, sync-status-text='Synced'. Validation: finish==start -> inline error 'Finish time can't be the same as start time.' ; prisoner number 'A1234BC' in location -> 'Don't enter prisoner numbers or identifying details.'; overlap warning (shift-overlap-warning) correctly appears for a Night 22:00-06:00 on same date as an existing Night 20:00-08:00, hidden for non-overlapping Day shift (correct behavior). Shifts tab calendar: duty-colour dot + moon on 20 May 2026 Night shift; Month/Week toggle and prev/next navigation work; day cells have testID 'calendar-day-YYYY-MM-DD'; tapping a shift card opens shift-actions-sheet with complete/edit/duplicate/cancel/restore/delete + delete confirm (shift-delete-confirm-button). CRITICAL BUG: offline-to-online auto-sync broken on web — a shift created while offline (badge correctly shows 'Saved on device') does NOT reach the server after the client returns online, even after dispatching a window 'online' event and tapping the sync badge. It only syncs after a full page reload. Root cause in /app/frontend/src/components/sync-badge.tsx:32: tap handler blocks syncNow() when state is 'saved_local' AND online=false; combined with NetInfo on react-native-web not detecting the browser online event, `online` state stays false forever, so neither the auto-sync (NetInfo listener never fires) nor the manual tap can recover. Deprecated packages detected: none. Minor warnings persist (shadow* / pointerEvents) — carried over from iteration 1.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/register, /api/auth/forgot-password", "issue": "Pre-existing 502 leak when Emergent email proxy is 'rate_limited' — tests tolerate 502 but ideally should always return 202 generic. See iteration_1 action items. Not re-tested here because email was not exercised beyond log-hygiene test (both calls returned 202)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "shift-actions-sheet (bottom sheet)", "issue": "On 390x844 web viewport the sheet content (duplicate/cancel/delete rows) can fall outside the initial viewport; Playwright scrolls into view but the sheet closes on scroll in some cases. Low priority: UX works on native. Reference: /app/frontend/src/components/shift-actions-sheet.tsx", "testID": "shift-actions-sheet", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {
+        "flow": "Offline save -> back online -> auto sync",
+        "issue": "After context.set_offline(False) + dispatching window 'online' event, the sync badge stays 'Saved on device' and tapping it does not trigger a sync. Server never receives the shift until the user reloads the page. Root cause: sync-badge.tsx line 32 returns early with a toast when syncState==='saved_local' && !online — but on react-native-web, @react-native-community/netinfo does not update `online` from the browser online/offline events, so `online` stays false after reconnect, blocking the manual retry. The automatic listener in provider.tsx:181 also never fires for the same reason.",
+        "affected_testIDs": ["sync-status-badge", "sync-status-text"]
+      }
+    ],
+    "design_issues": [
+      {"screen": "Home", "issues": ["System preview clock is October 2026, not January 2026 as noted in the problem statement — stat labels say 'October 2026' which is correct for the clock but may confuse screenshots dated Jan 2026."]}
+    ],
+    "react_native_issues": [
+      {"component": "@react-native-community/netinfo (web)", "issue": "NetInfo on react-native-web does not reliably propagate browser online/offline events to its subscribers, breaking the offline->online auto-sync UX. Consider wiring a fallback window.addEventListener('online', syncNow) in provider.tsx and/or removing the `&& !online` guard in sync-badge.tsx so a manual tap always calls syncNow()."},
+      {"component": "Shadow* style props (carryover)", "issue": "Console deprecation warning 'shadow* style props are deprecated. Use boxShadow.' (web). Still unresolved from iteration 1."},
+      {"component": "props.pointerEvents (carryover)", "issue": "'props.pointerEvents is deprecated. Use style.pointerEvents' (web). Still unresolved from iteration 1."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_dutyconnect_backend.py",
+    "/app/backend/tests/test_shifts_sync.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "FIX (high): In /app/frontend/src/components/sync-badge.tsx, remove or weaken the `&& !online` guard on the 'saved_local' tap branch so tapping the badge always calls syncNow() (let the request fail naturally if truly offline). This immediately gives users a working manual retry.",
+    "FIX (high): In /app/frontend/src/shifts/provider.tsx, add a direct `window.addEventListener('online', syncNow)` fallback (web only) so recovery from offline is automatic even when NetInfo doesn't fire. Alternatively poll navigator.onLine inside the 60s interval.",
+    "Address carryover warnings: migrate shadow* -> boxShadow, props.pointerEvents -> style.pointerEvents.",
+    "Backend (carried over): make /auth/register, /auth/resend-verification, /auth/forgot-password always return 202 even on Emergent email proxy 'rate_limited' failures."
+  ],
+  "critical_code_review_comments": [
+    "provider.tsx syncNow correctly uses the ApiError status===0 branch to flag `online=false` on a failed fetch, but there is no companion path to flip `online=true` when connectivity returns (only NetInfo listener does that), so a stale `online=false` can persist indefinitely on web.",
+    "sync-badge.tsx early-return on `syncState==='saved_local' && !online` is user-hostile: it tells the user to wait for connectivity but the client has no reliable way to detect that connectivity has returned on web.",
+    "server.py /shifts/sync: good shape — version-based optimistic concurrency, idempotency via last_change_id, cross-user guard, tombstone semantics, projection excludes _id/user_id/last_change_id; computed fields correctly recomputed server-side. All 15 new tests pass.",
+    "server.py:517 `q['updated_at'] = {'$gt': body.since - timedelta(seconds=2)}` — 2s overlap window is correct and incremental pull returned the tombstone in test_delete_tombstone_excluded_from_initial_pull_included_in_incremental.",
+    "No file exceeds 700 lines; env vars used consistently; MongoDB _id excluded via projection."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_shifts_sync.py (new, 15 tests)",
+    "/app/test_reports/iteration_2.json (new)",
+    "/app/test_reports/pytest/pytest_results.xml (refreshed by combined run)"
+  ],
+  "success_rate": {
+    "backend": "100% (39/39: 24 M1 regression + 15 new shift sync)",
+    "frontend": "~85% (login, add shift, calc, overnight note, save, next shift card, Synced badge, validation errors, overlap warning, calendar dot + moon, Month/Week toggle, calendar nav, actions sheet open, delete confirm all pass; offline->online auto-recovery FAILS; actions-sheet scroll on narrow web viewport flaky)"
+  },
+  "seed_data_creation": "Created ephemeral shifts under main user during UI testing; all pp_shifts for delivered+t1@resend.dev deleted at end (db.pp_shifts.count_documents == 0 for this user). Backend tests clean their own data via the clean_shifts fixture.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Pytest serial (-n 0) remains required. Preview system clock is ~October 2026 (not Jan 2026 as docs say) — calendar navigation in Playwright should start from Oct 2026. Playwright context.set_offline() does cut the network at browser level but react-native-community/netinfo on web does NOT consistently flip `online` back to true via NetInfo listener; dispatching window 'online' event is also insufficient. The ONLY reliable way to recover from an offline save on web today is a full page reload (which succeeds). All 15 shift-sync backend tests use the clean_shifts fixture — safe to re-run. Main user hourly_rate was reset to None by iteration 1 and remains None.",
+  "rca_of_issue": "RCA for offline->online badge stuck: (1) When connection is lost mid-sync, provider.tsx catches ApiError.status===0 and sets `online=false`. (2) On recovery, the client relies on NetInfo listener to flip `online=true` and call `syncNow()`. On react-native-web, @react-native-community/netinfo does not subscribe to window online/offline events in a way Playwright's context.set_offline / manual dispatchEvent can trigger — so the listener never fires. (3) The badge's manual tap handler short-circuits with a toast when `syncState==='saved_local' && !online`, so even an explicit retry is blocked. (4) The 60s interval would eventually recover (next tick calls syncNow regardless of `online`), but that's not acceptable UX. Reproduction: login, create a shift while Playwright is offline, go online, dispatch 'online' event, tap sync badge -> badge stays 'Saved on device', server has 0 records; reload page -> badge becomes 'Synced' and server has the record. Mitigation: remove the `!online` guard in sync-badge.tsx tap handler AND add a window 'online' listener in provider.tsx that calls syncNow()."
+}

@@ -1,0 +1,303 @@
+import Ionicons from "@react-native-vector-icons/ionicons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useMemo, useState } from "react";
+import { Text, View } from "react-native";
+import { KeyboardAwareScrollView, KeyboardStickyView } from "react-native-keyboard-controller";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useAuth } from "@/src/auth";
+import { PickerField } from "@/src/components/picker-field";
+import { Segmented } from "@/src/components/segmented";
+import { StackHeader } from "@/src/components/stack-header";
+import { useToast } from "@/src/components/toast";
+import { Button, SectionTitle, TextField } from "@/src/components/ui";
+import { currencySymbol, money } from "@/src/format";
+import {
+  DUTY_LABEL,
+  DutyType,
+  PaymentStatus,
+  ShiftData,
+  ShiftPeriod,
+  ShiftStatus,
+  TIME_RE,
+  addDays,
+  crossesMidnight,
+  estimatedEarnings,
+  formatDateLong,
+  overlaps,
+  payableHours,
+  toISODate,
+  validateShift,
+} from "@/src/shifts/calc";
+import { useShifts } from "@/src/shifts/provider";
+import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
+
+const PRESETS: Record<ShiftPeriod, [string, string]> = { day: ["08:00", "20:00"], night: ["20:00", "08:00"] };
+const BREAKS = ["0", "30", "45", "60"] as const;
+
+export default function ShiftForm() {
+  const params = useLocalSearchParams<{ id?: string; duplicate?: string; date?: string }>();
+  const { user } = useAuth();
+  const { byId, create, update, shifts } = useShifts();
+  const router = useRouter();
+  const toast = useToast();
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const editing = params.id ? byId(params.id) : undefined;
+  const source = editing ?? (params.duplicate ? byId(params.duplicate) : undefined);
+
+  const [f, setF] = useState<ShiftData>(() => {
+    if (source) {
+      const base = {
+        officer_name: source.officer_name,
+        duty_type: source.duty_type,
+        shift_period: source.shift_period,
+        date: source.date,
+        start_time: source.start_time,
+        end_time: source.end_time,
+        break_minutes: source.break_minutes,
+        location: source.location,
+        status: source.status,
+        payment_status: source.payment_status,
+        hourly_rate: source.hourly_rate,
+      };
+      // Duplicate: next day, fresh status, current profile rate.
+      return editing ? base : { ...base, date: addDays(source.date, 1), status: "booked", payment_status: "pending", hourly_rate: user?.hourly_rate ?? null, officer_name: user?.full_name ?? base.officer_name };
+    }
+    return {
+      officer_name: user?.full_name ?? "",
+      duty_type: "bed_watch",
+      shift_period: "day",
+      date: params.date ?? toISODate(new Date()),
+      start_time: PRESETS.day[0],
+      end_time: PRESETS.day[1],
+      break_minutes: 0,
+      location: "",
+      status: "booked",
+      payment_status: "pending",
+      hourly_rate: user?.hourly_rate ?? null,
+    };
+  });
+  const [rateText, setRateText] = useState(f.hourly_rate != null ? String(f.hourly_rate) : "");
+  const [customBreak, setCustomBreak] = useState(!BREAKS.includes(String(f.break_minutes) as any));
+  const [timesTouched, setTimesTouched] = useState(!!source);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof ShiftData>(k: K, v: ShiftData[K]) => setF((s) => ({ ...s, [k]: v }));
+
+  const timesOk = TIME_RE.test(f.start_time) && TIME_RE.test(f.end_time) && f.start_time !== f.end_time;
+  const hours = timesOk ? payableHours(f.start_time, f.end_time, f.break_minutes) : 0;
+  const rateNum = rateText.trim() === "" ? null : Number(rateText.replace(",", "."));
+  const est = estimatedEarnings(hours, rateNum != null && isFinite(rateNum) ? rateNum : null);
+  const clashes = useMemo(() => overlaps({ ...f, id: editing?.id }, shifts), [f, editing?.id, shifts]);
+
+  const save = async () => {
+    const data: ShiftData = { ...f, officer_name: f.officer_name.trim(), location: f.location.trim(), hourly_rate: rateNum };
+    const e = validateShift(data);
+    if (rateNum != null && (!isFinite(rateNum) || rateNum < 0 || rateNum > 500)) e.hourly_rate = "Enter a rate between 0 and 500.";
+    setErrors(e);
+    if (Object.keys(e).length) return toast("Please check the highlighted fields", "error");
+    setSaving(true);
+    try {
+      if (editing) await update(editing.id, data);
+      else await create(data);
+      toast(clashes.length ? "Shift saved — note: it overlaps another shift" : "Shift saved", clashes.length ? "info" : "success");
+      router.back();
+    } catch (err) {
+      toast((err as Error).message, "error");
+      setSaving(false);
+    }
+  };
+
+  const title = editing ? "Edit shift" : params.duplicate ? "Duplicate shift" : "Add shift";
+
+  return (
+    <View style={styles.root} testID="shift-form-screen">
+      <StackHeader title={title} />
+      <KeyboardAwareScrollView bottomOffset={140} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+        <SectionTitle>Duty</SectionTitle>
+        <Segmented<DutyType>
+          testPrefix="shift-duty"
+          value={f.duty_type}
+          onChange={(v) => set("duty_type", v)}
+          options={(Object.keys(DUTY_LABEL) as DutyType[]).map((k) => ({ value: k, label: DUTY_LABEL[k] }))}
+        />
+        <View style={{ height: spacing.md }} />
+        <Segmented<ShiftPeriod>
+          testPrefix="shift-period"
+          value={f.shift_period}
+          icons={{ day: "sunny", night: "moon" }}
+          onChange={(v) => {
+            setF((s) => ({ ...s, shift_period: v, ...(timesTouched ? {} : { start_time: PRESETS[v][0], end_time: PRESETS[v][1] }) }));
+          }}
+          options={[
+            { value: "day", label: "Day" },
+            { value: "night", label: "Night" },
+          ]}
+        />
+
+        <SectionTitle>When</SectionTitle>
+        <View style={styles.gap}>
+          <PickerField testID="shift-date-input" label="Date (shift start)" mode="date" value={f.date} onChange={(v) => set("date", v)} error={errors.date} />
+          <View style={styles.row}>
+            <PickerField
+              testID="shift-start-input"
+              label="Start"
+              mode="time"
+              value={f.start_time}
+              onChange={(v) => {
+                setTimesTouched(true);
+                set("start_time", v);
+              }}
+              error={errors.start_time}
+            />
+            <PickerField
+              testID="shift-end-input"
+              label="Finish"
+              mode="time"
+              value={f.end_time}
+              onChange={(v) => {
+                setTimesTouched(true);
+                set("end_time", v);
+              }}
+              error={errors.end_time}
+            />
+          </View>
+          {timesOk && crossesMidnight(f.start_time, f.end_time) && (
+            <View style={styles.info} testID="shift-overnight-note">
+              <Ionicons name="moon" size={14} color={colors.night} />
+              <Text style={styles.infoText}>Overnight — finishes {formatDateLong(addDays(f.date, 1))} at {f.end_time}</Text>
+            </View>
+          )}
+        </View>
+
+        <SectionTitle>Unpaid break (minutes)</SectionTitle>
+        <Segmented<string>
+          testPrefix="shift-break"
+          value={customBreak ? "custom" : String(f.break_minutes)}
+          onChange={(v) => {
+            if (v === "custom") return setCustomBreak(true);
+            setCustomBreak(false);
+            set("break_minutes", parseInt(v, 10));
+          }}
+          options={[...BREAKS.map((b) => ({ value: b, label: b === "0" ? "None" : `${b} min` })), { value: "custom", label: "Custom" }]}
+        />
+        {customBreak && (
+          <View style={{ marginTop: spacing.md }}>
+            <TextField
+              testID="shift-break-custom-input"
+              label="Break minutes"
+              keyboardType="number-pad"
+              value={String(f.break_minutes)}
+              onChangeText={(t) => set("break_minutes", parseInt(t.replace(/\D/g, "") || "0", 10))}
+            />
+          </View>
+        )}
+        {!!errors.break_minutes && <Text style={styles.error}>{errors.break_minutes}</Text>}
+
+        <SectionTitle>Details</SectionTitle>
+        <View style={styles.gap}>
+          <TextField testID="shift-officer-input" label="Officer name" value={f.officer_name} onChangeText={(v) => set("officer_name", v)} error={errors.officer_name} />
+          <TextField
+            testID="shift-location-input"
+            label="General location (optional)"
+            value={f.location}
+            onChangeText={(v) => set("location", v)}
+            placeholder="e.g. Local hospital"
+            maxLength={60}
+            error={errors.location}
+            hint="General description only. Never enter prisoner names, numbers, health or security details."
+          />
+          <TextField
+            testID="shift-rate-input"
+            label="Hourly PP rate for this shift"
+            prefix={currencySymbol(user?.currency)}
+            keyboardType="decimal-pad"
+            value={rateText}
+            onChangeText={setRateText}
+            placeholder="Not set"
+            error={errors.hourly_rate}
+            hint={editing ? "Saved with this shift — changing your profile rate won't alter it." : "Taken from your profile. Saved with this shift."}
+          />
+        </View>
+
+        <SectionTitle>Status</SectionTitle>
+        <Segmented<ShiftStatus>
+          testPrefix="shift-status"
+          value={f.status}
+          onChange={(v) => set("status", v)}
+          options={[
+            { value: "booked", label: "Booked" },
+            { value: "completed", label: "Completed" },
+            { value: "cancelled", label: "Cancelled" },
+          ]}
+        />
+        <SectionTitle>Payment</SectionTitle>
+        <Segmented<PaymentStatus>
+          testPrefix="shift-payment"
+          value={f.payment_status}
+          onChange={(v) => set("payment_status", v)}
+          options={[
+            { value: "pending", label: "Pending" },
+            { value: "partially_paid", label: "Partially paid" },
+            { value: "paid", label: "Paid" },
+          ]}
+        />
+        <View style={{ height: 160 }} />
+      </KeyboardAwareScrollView>
+
+      <KeyboardStickyView offset={{ opened: insets.bottom }}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+          {clashes.length > 0 && (
+            <View style={styles.warn} testID="shift-overlap-warning">
+              <Ionicons name="warning" size={16} color={colors.warning} />
+              <Text style={styles.warnText} numberOfLines={2}>
+                Overlaps {DUTY_LABEL[clashes[0].duty_type]} on {formatDateLong(clashes[0].date)} {clashes[0].start_time}–{clashes[0].end_time}
+                {clashes.length > 1 ? ` (+${clashes.length - 1} more)` : ""}
+              </Text>
+            </View>
+          )}
+          <View style={styles.summary}>
+            <View>
+              <Text style={styles.sumValue} testID="shift-payable-hours">
+                {hours.toFixed(2)} h
+              </Text>
+              <Text style={styles.sumLabel}>Payable hours</Text>
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.sumValue} testID="shift-estimated-earnings">
+                {est != null ? money(est, user?.currency) : "—"}
+              </Text>
+              <Text style={styles.sumLabel}>{est != null ? "Estimated gross" : "Set a rate to estimate"}</Text>
+            </View>
+          </View>
+          <Button testID="shift-save-button" label={editing ? "Save changes" : "Save shift"} onPress={save} loading={saving} />
+        </View>
+      </KeyboardStickyView>
+    </View>
+  );
+}
+
+const useStyles = makeStyles((c) => ({
+  root: { flex: 1, backgroundColor: c.surface },
+  content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+  gap: { gap: spacing.lg },
+  row: { flexDirection: "row", gap: spacing.md },
+  info: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  infoText: { fontFamily: fonts.medium, fontSize: type.sm + 1, color: c.onSurfaceSecondary },
+  error: { fontFamily: fonts.medium, fontSize: type.sm, color: c.error, marginTop: spacing.sm },
+  footer: {
+    backgroundColor: c.surface,
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.md,
+  },
+  warn: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: c.warningSoft, padding: spacing.md, borderRadius: radius.md },
+  warnText: { flex: 1, fontFamily: fonts.medium, fontSize: type.sm + 1, color: c.onSurface },
+  summary: { flexDirection: "row", justifyContent: "space-between" },
+  sumValue: { fontFamily: fonts.bold, fontSize: type.xl, color: c.onSurface },
+  sumLabel: { fontFamily: fonts.medium, fontSize: type.sm, color: c.muted },
+}));

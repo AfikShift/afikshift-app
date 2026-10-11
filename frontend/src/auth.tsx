@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState } from "react-native";
 
 import { ApiError, REFRESH_KEY, clearTokens, request, saveTokens, setSessionExpiredHandler, tryRefresh } from "@/src/api";
+import { removeEncrypted, shiftsKey } from "@/src/shifts/local-store";
 import { storage } from "@/src/utils/storage";
 
 export type NotificationPrefs = { shift_reminders: boolean; payment_reminders: boolean; product_updates: boolean };
@@ -72,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Bootstrap: restore session (works offline using the cached profile).
   useEffect(() => {
     (async () => {
-      const bio = (await storage.getItem(BIOMETRIC_KEY, false)) === true;
+      const bio = (await storage.getItem(BIOMETRIC_KEY, false as boolean)) === true;
       setBio(bio);
       const token = await storage.secureGet(REFRESH_KEY, null as string | null);
       if (!token) return setStatus("signedOut");
@@ -152,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       deleteAccount: async (password) => {
         await request("/me", { method: "DELETE", body: { password } });
+        if (user) await removeEncrypted(shiftsKey(user.id)); // purge on-device shift records
         await storage.removeItem(BIOMETRIC_KEY);
         setBio(false);
         await signOutLocal();

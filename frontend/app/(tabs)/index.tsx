@@ -1,13 +1,17 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useAuth } from "@/src/auth";
+import { SyncBadge } from "@/src/components/sync-badge";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { tap } from "@/src/components/ui";
 import { firstName, greeting, money } from "@/src/format";
+import { DUTY_LABEL, crossesMidnight, formatDateLong, formatHours, toISODate } from "@/src/shifts/calc";
+import { useShifts } from "@/src/shifts/provider";
+import { monthStats, nextShift } from "@/src/shifts/stats";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -52,24 +56,22 @@ export default function Home() {
   const bottom = useTabBottomPadding();
   const [refreshing, setRefreshing] = useState(false);
   const month = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const { shifts, syncNow } = useShifts();
+  const stats = useMemo(() => monthStats(shifts, toISODate(new Date()).slice(0, 7)), [shifts]);
+  const next = useMemo(() => nextShift(shifts), [shifts]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshUser().catch(() => {});
+    await Promise.all([refreshUser().catch(() => {}), syncNow()]);
     setRefreshing(false);
-  }, [refreshUser]);
+  }, [refreshUser, syncNow]);
 
   return (
     <View style={styles.root} testID="home-screen">
       <TabHeader
         subtitle={greeting()}
         title={firstName(user?.full_name) || "Officer"}
-        right={
-          <View style={styles.sync} testID="home-sync-status">
-            <Ionicons name="cloud-done-outline" size={14} color={colors.success} />
-            <Text style={styles.syncText}>Synced</Text>
-          </View>
-        }
+        right={<SyncBadge />}
       />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: bottom }]}
@@ -91,19 +93,46 @@ export default function Home() {
         <Animated.View entering={FadeInDown.delay(60).duration(450)} style={styles.hero} testID="home-next-shift-card">
           <View style={styles.heroTop}>
             <Text style={styles.heroLabel}>NEXT SHIFT</Text>
-            <Ionicons name="time-outline" size={18} color={colors.onHeroMuted} />
+            {next && (
+              <View style={styles.heroPeriod}>
+                <Ionicons name={next.shift_period === "night" ? "moon" : "sunny"} size={14} color={colors.heroAccent} />
+                <Text style={styles.heroPeriodText}>{next.shift_period === "night" ? "Night" : "Day"}</Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.heroTitle}>No upcoming shifts</Text>
-          <Text style={styles.heroBody}>Your next booked PP duty will appear here.</Text>
-          <Pressable testID="home-hero-add-shift-button" onPress={() => router.push("/(tabs)/shifts")} style={styles.heroBtn}>
-            <Ionicons name="add" size={18} color={colors.hero} />
-            <Text style={styles.heroBtnText}>Add a shift</Text>
-          </Pressable>
+          {next ? (
+            <>
+              <Text style={styles.heroTitle} testID="home-next-shift-title">
+                {DUTY_LABEL[next.duty_type]}
+              </Text>
+              <Text style={styles.heroWhen} testID="home-next-shift-when">
+                {formatDateLong(next.date)} · {next.start_time}–{next.end_time}
+                {crossesMidnight(next.start_time, next.end_time) ? " (+1)" : ""}
+              </Text>
+              <Text style={styles.heroBody}>
+                {next.location || "No location"} · {formatHours(next.payable_hours)} payable
+                {next.estimated_earnings != null ? ` · est. ${money(next.estimated_earnings, user?.currency)}` : ""}
+              </Text>
+              <Pressable testID="home-hero-view-shift-button" onPress={() => router.push({ pathname: "/(tabs)/shifts", params: { date: next.date } })} style={styles.heroBtn}>
+                <Ionicons name="calendar" size={16} color={colors.hero} />
+                <Text style={styles.heroBtnText}>View in calendar</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.heroTitle}>No upcoming shifts</Text>
+              <Text style={styles.heroBody}>Your next booked PP duty will appear here.</Text>
+              <Pressable testID="home-hero-add-shift-button" onPress={() => router.push("/shift-form")} style={styles.heroBtn}>
+                <Ionicons name="add" size={18} color={colors.hero} />
+                <Text style={styles.heroBtnText}>Add a shift</Text>
+              </Pressable>
+            </>
+          )}
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(120).duration(450)} style={styles.qaRow}>
-          <QuickAction testID="home-quick-add-shift" icon="add-circle-outline" label="Add Shift" onPress={() => router.push("/(tabs)/shifts")} />
-          <QuickAction testID="home-quick-earnings" icon="wallet-outline" label="Earnings" onPress={() => router.push("/(tabs)/earnings")} />
+          <QuickAction testID="home-quick-add-shift" icon="add-circle-outline" label="Add Shift" onPress={() => router.push("/shift-form")} />
+          <QuickAction testID="home-quick-calendar" icon="calendar-outline" label="Calendar" onPress={() => router.push("/(tabs)/shifts")} />
           <QuickAction testID="home-quick-messages" icon="chatbubbles-outline" label="Messages" onPress={() => router.push("/messages")} />
         </Animated.View>
 
@@ -113,12 +142,15 @@ export default function Home() {
             <Text style={styles.cardSub}>{month}</Text>
           </View>
           <View style={styles.stats}>
-            <Stat testID="home-stat-completed" label="Completed" value="0" />
-            <Stat testID="home-stat-hours" label="Hours" value="0.0" />
-            <Stat testID="home-stat-estimated" label="Estimated" value={money(0, user?.currency)} />
-            <Stat testID="home-stat-outstanding" label="Outstanding" value={money(0, user?.currency)} />
+            <Stat testID="home-stat-completed" label="Completed shifts" value={String(stats.completed)} />
+            <Stat testID="home-stat-hours" label="Completed hours" value={stats.hours.toFixed(2)} />
+            <Stat testID="home-stat-estimated" label="Estimated gross" value={money(stats.estimated, user?.currency)} />
+            <Stat testID="home-stat-outstanding" label="Not yet paid (est.)" value={money(stats.outstanding, user?.currency)} />
           </View>
-          <Text style={styles.disclaimer}>Estimates only — not official payroll records.</Text>
+          <Text style={styles.projected} testID="home-stat-booked">
+            {stats.booked} booked · {money(stats.projected, user?.currency)} projected
+          </Text>
+          <Text style={styles.disclaimer}>Estimates only — not official payroll records. Booked shifts are projected, not earned.</Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(240).duration(450)}>
@@ -168,6 +200,10 @@ const useStyles = makeStyles((c) => ({
   heroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   heroLabel: { fontFamily: fonts.bold, fontSize: type.sm, color: c.heroAccent, letterSpacing: 1.2 },
   heroTitle: { fontFamily: fonts.bold, fontSize: type.xxl, color: c.onHero, marginTop: spacing.md },
+  heroWhen: { fontFamily: fonts.semibold, fontSize: type.lg, color: c.onHero, marginTop: spacing.xs },
+  heroPeriod: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  heroPeriodText: { fontFamily: fonts.semibold, fontSize: type.sm, color: c.heroAccent },
+  projected: { fontFamily: fonts.semibold, fontSize: type.sm + 1, color: c.onSurfaceSecondary, marginTop: spacing.lg },
   heroBody: { fontFamily: fonts.regular, fontSize: type.base, color: c.onHeroMuted, marginTop: spacing.xs },
   heroBtn: {
     marginTop: spacing.lg,
@@ -209,7 +245,7 @@ const useStyles = makeStyles((c) => ({
   stat: { width: "50%" },
   statValue: { fontFamily: fonts.bold, fontSize: type.xl, color: c.onSurface },
   statLabel: { fontFamily: fonts.medium, fontSize: type.sm, color: c.muted, marginTop: 2 },
-  disclaimer: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, marginTop: spacing.lg },
+  disclaimer: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, marginTop: spacing.xs },
   msgCard: {
     flexDirection: "row",
     alignItems: "center",

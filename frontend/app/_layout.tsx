@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/src/components/error-boundary";
 import { LockScreen } from "@/src/components/lock-screen";
 import { ToastProvider } from "@/src/components/toast";
 import { queryClient } from "@/src/query-client";
+import { ShiftsProvider } from "@/src/shifts/provider";
 import { useTheme } from "@/src/theme";
 
 // Disable logbox errors etc so that users can see the app
@@ -34,6 +35,7 @@ function AppStack() {
         <Stack.Screen name="messages" options={{ presentation: "card" }} />
         <Stack.Screen name="profile" options={{ presentation: "card" }} />
         <Stack.Screen name="security" options={{ presentation: "card" }} />
+        <Stack.Screen name="shift-form" options={{ presentation: "card" }} />
       </Stack>
       {status === "signedIn" && locked && (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
@@ -67,9 +69,11 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <KeyboardProvider>
               <AuthProvider>
-                <ToastProvider>
-                  <AppStack />
-                </ToastProvider>
+                <ShiftsProvider>
+                  <ToastProvider>
+                    <AppStack />
+                  </ToastProvider>
+                </ShiftsProvider>
               </AuthProvider>
             </KeyboardProvider>
           </QueryClientProvider>

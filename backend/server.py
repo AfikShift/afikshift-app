@@ -400,6 +400,127 @@ async def delete_me(body: DeleteAccountIn, user: dict = Depends(current_user)):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- PP shifts (offline-first sync)
+import re  # noqa: E402
+from typing import List  # noqa: E402
+from pydantic import model_validator  # noqa: E402
+from pymongo.errors import DuplicateKeyError  # noqa: E402
+
+TIME_RE = r"^([01]\d|2[0-3]):[0-5]\d$"
+DATE_RE = r"^\d{4}-\d{2}-\d{2}$"
+UUID_RE = r"^[0-9a-fA-F-]{8,64}$"
+# UK prisoner number format (e.g. A1234BC) — blocked to avoid collecting prisoner data.
+PRISONER_NO_RE = re.compile(r"\b[A-Za-z]\d{4}[A-Za-z]{2}\b")
+
+
+def shift_minutes(start: str, end: str) -> int:
+    s = int(start[:2]) * 60 + int(start[3:])
+    e = int(end[:2]) * 60 + int(end[3:])
+    return e - s if e > s else e + 1440 - s  # crosses midnight when finish <= start
+
+
+class ShiftData(BaseModel):
+    officer_name: str = Field(min_length=1, max_length=80)
+    duty_type: Literal["bed_watch", "constant_watch", "other"]
+    shift_period: Literal["day", "night"]
+    date: str = Field(pattern=DATE_RE)
+    start_time: str = Field(pattern=TIME_RE)
+    end_time: str = Field(pattern=TIME_RE)
+    break_minutes: int = Field(ge=0, le=720)
+    location: str = Field(default="", max_length=60)
+    status: Literal["booked", "completed", "cancelled"] = "booked"
+    payment_status: Literal["pending", "partially_paid", "paid"] = "pending"
+    hourly_rate: Optional[float] = Field(default=None, ge=0, le=500)
+
+    @model_validator(mode="after")
+    def _check(self):
+        datetime.strptime(self.date, "%Y-%m-%d")
+        if self.start_time == self.end_time:
+            raise ValueError("Finish time cannot equal start time")
+        if self.break_minutes >= shift_minutes(self.start_time, self.end_time):
+            raise ValueError("Unpaid break must be shorter than the shift")
+        for v in (self.location, self.officer_name):
+            if PRISONER_NO_RE.search(v):
+                raise ValueError("Do not enter prisoner numbers or identifying details")
+        self.location = self.location.strip()
+        return self
+
+
+class ShiftChange(BaseModel):
+    id: str = Field(pattern=UUID_RE)
+    change_id: str = Field(pattern=UUID_RE)
+    base_version: int = Field(ge=0)
+    deleted: bool = False
+    data: Optional[ShiftData] = None
+
+    @model_validator(mode="after")
+    def _need_data(self):
+        if not self.deleted and self.data is None:
+            raise ValueError("Shift data required")
+        return self
+
+
+class SyncIn(BaseModel):
+    changes: List[ShiftChange] = Field(default_factory=list, max_length=500)
+    since: Optional[datetime] = None
+
+
+def computed(d: ShiftData) -> dict:
+    hours = round((shift_minutes(d.start_time, d.end_time) - d.break_minutes) / 60, 2)
+    rate = d.hourly_rate
+    return {"payable_hours": hours, "estimated_earnings": round(hours * rate, 2) if rate is not None else None}
+
+
+def shift_out(doc: dict) -> dict:
+    out = {k: v for k, v in doc.items() if k not in ("_id", "user_id", "last_change_id")}
+    for k in ("created_at", "updated_at"):
+        if isinstance(out.get(k), datetime):
+            out[k] = out[k].isoformat()
+    return out
+
+
+async def apply_change(uid: str, ch: ShiftChange) -> dict:
+    cur = await db.pp_shifts.find_one({"id": ch.id}, {"_id": 0})
+    if cur and cur["user_id"] != uid:
+        return {"id": ch.id, "status": "rejected", "server": None}
+    if cur and cur.get("last_change_id") == ch.change_id:
+        return {"id": ch.id, "status": "duplicate", "server": shift_out(cur)}  # retry of an applied change
+    fields = {"deleted": ch.deleted, "last_change_id": ch.change_id, "updated_at": now()}
+    if ch.data:
+        fields.update(ch.data.model_dump(), **computed(ch.data))
+    if not cur:
+        if ch.base_version != 0:
+            return {"id": ch.id, "status": "conflict", "server": None}  # edited a record the server no longer has
+        doc = {"id": ch.id, "user_id": uid, "version": 1, "created_at": now(), **fields}
+        try:
+            await db.pp_shifts.insert_one(doc)
+        except DuplicateKeyError:
+            return await apply_change(uid, ch)
+        return {"id": ch.id, "status": "applied", "server": shift_out(doc)}
+    if ch.base_version != cur["version"]:
+        return {"id": ch.id, "status": "conflict", "server": shift_out(cur)}
+    res = await db.pp_shifts.find_one_and_update(
+        {"id": ch.id, "user_id": uid, "version": cur["version"]},
+        {"$set": fields, "$inc": {"version": 1}}, projection={"_id": 0}, return_document=True)
+    if not res:
+        fresh = await db.pp_shifts.find_one({"id": ch.id}, {"_id": 0})
+        return {"id": ch.id, "status": "conflict", "server": shift_out(fresh) if fresh else None}
+    return {"id": ch.id, "status": "applied", "server": shift_out(res)}
+
+
+@api.post("/shifts/sync")
+async def sync_shifts(body: SyncIn, user: dict = Depends(current_user)):
+    server_time = now()
+    results = [await apply_change(user["id"], ch) for ch in body.changes]
+    q = {"user_id": user["id"]}
+    if body.since:
+        q["updated_at"] = {"$gt": body.since - timedelta(seconds=2)}  # small overlap; merging is idempotent
+    else:
+        q["deleted"] = False
+    docs = await db.pp_shifts.find(q, {"_id": 0}).to_list(5000)
+    return {"results": results, "shifts": [shift_out(d) for d in docs], "server_time": server_time.isoformat()}
+
+
 app.include_router(api)
 
 app.add_middleware(
@@ -420,6 +541,8 @@ async def startup():
     await db.sessions.create_index("expires_at", expireAfterSeconds=0)
     await db.action_codes.create_index("expires_at", expireAfterSeconds=0)
     await db.action_codes.create_index([("user_id", 1), ("kind", 1)])
+    await db.pp_shifts.create_index("id", unique=True)
+    await db.pp_shifts.create_index([("user_id", 1), ("updated_at", 1)])
     await db.login_attempts.create_index("key", unique=True)
     await db.login_attempts.create_index("expires_at", expireAfterSeconds=0)
 

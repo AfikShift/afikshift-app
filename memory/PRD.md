@@ -27,6 +27,15 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Shifts / Earnings tabs = placeholders for M2/M3
 - Light/dark theme
 
+### M2 — PP Shift Manager (2026-10-11) ✅ tested (39/39 backend incl. 15 sync tests; frontend flows pass)
+- Shift form (duty, Day/Night presets, date, start/finish, break chips/custom, location w/ prisoner-number block, rate snapshot, status, payment), live payable hours & estimate, overnight note, overlap warning
+- Actions sheet: complete, edit, duplicate (next day), cancel/restore, delete (confirm), payment status
+- Month/week calendar with duty-colour dots + night moon, legend, day/week lists, FAB
+- Offline-first: encrypted local store (XChaCha20-Poly1305, key in Keychain/Keystore), POST /api/shifts/sync with client UUID + change_id idempotency + version conflicts, conflict resolution UI, auto-sync (NetInfo, web online event, foreground, 60s)
+- Real sync badge: Saved on device / Syncing / Synced / Sync failed · Retry / Needs review
+- Home live: Next Shift, monthly completed/hours/estimated/not-yet-paid, booked/projected
+- DEV_LOG_CODES=false; logs verified free of codes/passwords/tokens
+
 ## Backlog
 - P0 M2: PP shifts CRUD/duplicate/cancel/complete, overnight calc, overlap warnings, rate snapshot, offline-first queue + sync + conflict UI, month/week calendar, real sync badge
 - P0 M3: earnings dashboard (month/quarter/year), payments, outstanding, CSV/PDF export with filters, data export, DB backup/restore script, self-hosting README
