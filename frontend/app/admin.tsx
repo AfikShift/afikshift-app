@@ -24,6 +24,7 @@ const PROGRAMMES: { key: keyof Programmes; title: string; body: string }[] = [
 const ACTION: Record<string, string> = {
   programme_on: "Switched on", programme_off: "Switched off", referral_approved: "Referral approved",
   referral_cancelled: "Referral cancelled", member_updated: "Member updated",
+  free_pro_granted: "Free Pro given", free_pro_removed: "Free Pro removed",
 };
 const NAME: Record<string, string> = { referrals: "Referral programme", ambassadors: "Ambassador programme" };
 
@@ -100,7 +101,7 @@ export default function AdminDashboard() {
           </View>
 
           <Card style={styles.group}>
-            <ListRow testID="admin-open-referrals" icon="gift-outline" title="Referral admin" value={o.referrals_waiting + o.referrals_held ? `${o.referrals_waiting + o.referrals_held} to review` : "Approve rewards"} onPress={() => router.push("/admin-referrals")} last />
+            <ListRow testID="admin-open-referrals" icon="gift-outline" title="Members & referrals" value={o.referrals_waiting + o.referrals_held ? `${o.referrals_waiting + o.referrals_held} to review` : "Free Pro, rewards"} onPress={() => router.push("/admin-referrals")} last />
           </Card>
 
           <SectionTitle>Programmes</SectionTitle>

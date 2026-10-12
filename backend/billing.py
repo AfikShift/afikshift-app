@@ -192,11 +192,11 @@ def make_router(db, current_user, logger) -> APIRouter:
         await db.users.update_one({"id": uid}, {"$set": {"plan": plan}})
         return {"plan": plan, "sub": best if active or not bonus else None, "bonus": bonus}
 
-    async def grant_free_month(uid: str, days: int = 30) -> str:
+    async def grant_free_month(uid: str, days: int = 30, account_only: bool = False) -> str:
         """A referral reward. Paying subscriber: Google defers their next renewal (nothing charged for the
         free period). Otherwise: free Pro on the account until a date, stacking with earlier rewards."""
-        for s in await db.subscriptions.find({"user_id": uid, "state": "SUBSCRIPTION_STATE_ACTIVE", "auto_renew": True,
-                                              "replaced_by": None}).to_list(10):
+        for s in [] if account_only else await db.subscriptions.find({"user_id": uid, "state": "SUBSCRIPTION_STATE_ACTIVE", "auto_renew": True,
+                                                                      "replaced_by": None}).to_list(10):
             if grants_pro(s) and s.get("expiry"):
                 token = unseal(s["token_enc"])
                 await google.defer(s["product_id"], token, aware(s["expiry"]), days)

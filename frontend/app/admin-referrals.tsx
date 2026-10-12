@@ -13,7 +13,13 @@ import { fonts, makeStyles, radius, spacing, type } from "@/src/theme";
 import { REFERRAL_STATUS } from "@/src/referrals";
 
 type Row = { id: string; status: string; warnings?: string[]; referrer_email: string; friend_email: string; created_at: string; qualifies_at?: string; reason?: string; referrer_reward?: string; friend_reward?: string };
-type Member = { id: string; email: string; ambassador: boolean; referral_cap: number | null; monthly_cap: number; referral_code: string };
+type Member = { id: string; email: string; ambassador: boolean; referral_cap: number | null; monthly_cap: number; referral_code: string; plan: string; free_pro_until: string | null };
+const DURATIONS: { label: string; days: number }[] = [
+  { label: "1 month", days: 30 },
+  { label: "3 months", days: 91 },
+  { label: "6 months", days: 182 },
+  { label: "1 year", days: 365 },
+];
 type Filter = "awaiting_approval" | "held" | "paid" | "all";
 
 const confirm = (msg: string) =>
@@ -88,9 +94,21 @@ export default function AdminReferrals() {
     }
   };
 
+  const freePro = async (body: { days?: number; revoke?: boolean }, label: string) => {
+    if (!member) return;
+    if (!(await confirm(body.revoke ? `Remove free Pro from ${member.email}?` : `Give ${member.email} free Pro for ${label}?`))) return;
+    try {
+      const r = await request(`/admin/members/${member.id}/free-pro`, { method: "POST", body });
+      setMember({ ...member, ...r });
+      toast(body.revoke ? "Free Pro removed" : `Free Pro added for ${label}`, "success");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  };
+
   return (
     <View style={styles.root} testID="admin-referrals-screen">
-      <StackHeader title="Referral admin" />
+      <StackHeader title="Members & referrals" />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
         keyboardShouldPersistTaps="handled"
@@ -141,7 +159,7 @@ export default function AdminReferrals() {
           ))
         )}
 
-        <SectionTitle>Ambassadors & monthly limits</SectionTitle>
+        <SectionTitle>Members: free Pro, ambassadors & limits</SectionTitle>
         <TextField testID="admin-member-email" label="Member email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
         <Button testID="admin-member-find" label="Find member" variant="secondary" disabled={!email.trim()} onPress={find} />
         {member && (
@@ -150,6 +168,19 @@ export default function AdminReferrals() {
             <Text style={styles.small}>
               Code {member.referral_code} · {member.ambassador ? "Ambassador" : "Member"} · limit {member.monthly_cap} rewards/month
             </Text>
+            <Text style={styles.title} testID="admin-member-plan">
+              {member.plan === "pro" ? "Pro" : "Free"}
+              {member.free_pro_until ? ` · free Pro until ${new Date(member.free_pro_until).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : ""}
+            </Text>
+            <Text style={styles.small}>Give free Pro (adds to any free time left):</Text>
+            <View style={styles.chips}>
+              {DURATIONS.map((d) => (
+                <Button key={d.days} testID={`admin-free-pro-${d.days}`} label={d.label} variant="secondary" onPress={() => freePro({ days: d.days }, d.label)} />
+              ))}
+            </View>
+            {!!member.free_pro_until && (
+              <Button testID="admin-free-pro-remove" label="Remove free Pro" variant="ghost" onPress={() => freePro({ revoke: true }, "")} />
+            )}
             <Button
               testID="admin-member-ambassador"
               label={member.ambassador ? "Remove ambassador status" : "Make ambassador"}
@@ -177,4 +208,5 @@ const useStyles = makeStyles((c) => ({
   title: { fontFamily: fonts.semibold, fontSize: type.base, color: c.onSurface },
   small: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, lineHeight: 18 },
   warn: { fontFamily: fonts.semibold, fontSize: type.sm, color: c.warning },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
 }));

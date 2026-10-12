@@ -62,6 +62,11 @@ class CancelIn(BaseModel):
     reason: str = Field(default="", max_length=120)
 
 
+class FreeProIn(BaseModel):
+    days: Optional[int] = Field(default=None, ge=1, le=3650)
+    revoke: bool = False
+
+
 class AmbassadorIn(BaseModel):
     ambassador: Optional[bool] = None
     referral_cap: Optional[int] = Field(default=None, ge=0, le=100)
@@ -230,7 +235,9 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
         u = await db.users.find_one({"email": email.strip().lower()}, {"_id": 0})
         if not u:
             raise HTTPException(404, "No account with that email")
+        bonus = aware(u.get("bonus_pro_until"))
         return {"id": u["id"], "email": u["email"], "ambassador": bool(u.get("ambassador")), "referral_cap": u.get("referral_cap"),
+                "plan": u.get("plan", "free"), "free_pro_until": bonus.isoformat() if bonus and bonus > now() else None,
                 "monthly_cap": cap_of(u), "referral_code": await ensure_code(u)}
 
     @r.patch("/admin/members/{uid}")
@@ -248,6 +255,23 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
         u = await db.users.find_one({"id": uid}, {"_id": 0})
         await log_action(db, admin, "member_updated", f"{u['email']}: ambassador={bool(u.get('ambassador'))}, cap={u.get('referral_cap')}")
         return {"ambassador": bool(u.get("ambassador")), "referral_cap": u.get("referral_cap"), "monthly_cap": cap_of(u)}
+
+    @r.post("/admin/members/{uid}/free-pro")
+    async def free_pro(uid: str, body: FreeProIn, admin: dict = Depends(admin_user)):
+        """Owner tool: give (or take back) free Pro for a number of days. Stacks on any free time left."""
+        u = await db.users.find_one({"id": uid}, {"_id": 0})
+        if not u:
+            raise HTTPException(404, "No account with that id")
+        if body.revoke:
+            await db.users.update_one({"id": uid}, {"$unset": {"bonus_pro_until": ""}})
+            await log_action(db, admin, "free_pro_removed", u["email"])
+        elif body.days:
+            await billing.grant_free_month(uid, days=body.days, account_only=True)
+            await log_action(db, admin, "free_pro_granted", f"{u['email']}: {body.days} days")
+        else:
+            raise HTTPException(400, "Choose a duration")
+        res = await billing.refresh_plan(uid)
+        return {"plan": res["plan"], "free_pro_until": res["bonus"].isoformat() if res["bonus"] else None}
 
     async def loop():
         while True:

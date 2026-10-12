@@ -122,3 +122,5 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - PRICING CHANGE: plans are Monthly £3.99 and Six-month £19.99 (dutyconnect_pro_6month, ≈£3.33/mo, saves 17%). Annual plan and founding-member offer removed (backend, admin switch, app, docs).
 
 - Earnings tab reworked for monthly-paid users: hero = EXPECTED PAY · END OF <MONTH> (completed + booked shifts, before tax, plus after-tax line); received/not-yet-paid removed from Earnings (per-shift Payments panel unchanged). Free still current week only.
+
+- Owner free Pro: POST /api/admin/members/{uid}/free-pro {days 1–3650 | revoke} (bonus_pro_until, stacks, logged). UI in Members & referrals (admin-free-pro-30/91/182/365, admin-free-pro-remove).

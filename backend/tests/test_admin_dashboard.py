@@ -56,3 +56,19 @@ def test_ambassadors_off(people, mongo_db):
     assert me(h)["monthly_cap"] == 10
     switch(admin_h, ambassadors=False)
     assert me(h)["monthly_cap"] == 3 and me(h)["ambassador"] is False
+
+
+def test_owner_grants_and_removes_free_pro(people, mongo_db):
+    _, admin_h = people("Admin", admin=True)
+    uid, h = people("Customer")
+    assert requests.post(f"{API}/admin/members/{uid}/free-pro", headers=h, json={"days": 30}).status_code == 403
+    r = requests.post(f"{API}/admin/members/{uid}/free-pro", headers=admin_h, json={"days": 90})
+    assert r.status_code == 200 and r.json()["plan"] == "pro" and r.json()["free_pro_until"]
+    assert requests.get(f"{API}/billing/entitlement", headers=h).json()["plan"] == "pro"
+    email = mongo_db.users.find_one({"id": uid})["email"]
+    assert requests.get(f"{API}/admin/members", headers=admin_h, params={"email": email}).json()["free_pro_until"]
+    assert requests.post(f"{API}/admin/members/{uid}/free-pro", headers=admin_h, json={"days": 0}).status_code == 422
+    r = requests.post(f"{API}/admin/members/{uid}/free-pro", headers=admin_h, json={"revoke": True})
+    assert r.json() == {"plan": "free", "free_pro_until": None}
+    log = requests.get(f"{API}/admin/activity", headers=admin_h).json()["activity"]
+    assert [x["action"] for x in log[:2]] == ["free_pro_removed", "free_pro_granted"]
