@@ -128,7 +128,7 @@ async def send_email(*, to: str, subject: str, html: str) -> str | None:
         if code in ("insufficient_credits", "integration_disabled", "daily_limit_reached", "rate_limited"):
             logger.warning(f"Email paused: {code} ({e.response.status_code})")
             raise HTTPException(status_code=503, detail="Email is temporarily unavailable")
-        logger.error(f"Email send failed: {e.response.status_code} {e.response.text}")
+        logger.error(f"Email send failed: HTTP {e.response.status_code} {code}".strip())
         raise HTTPException(status_code=502, detail="Failed to send email")
     except HTTPException:
         raise
@@ -137,7 +137,7 @@ async def send_email(*, to: str, subject: str, html: str) -> str | None:
         raise HTTPException(status_code=500, detail="Failed to send email")
 
 
-def _code_template(title: str, intro: str, code: str, name: str) -> str:
+def _code_template(title: str, intro: str, code: str, name: str, where: str = "in the DutyConnect app") -> str:
     return (
         '<table role="presentation" width="100%" style="background:#F4F5F7"><tr><td style="padding:24px">'
         '<table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;'
@@ -147,7 +147,7 @@ def _code_template(title: str, intro: str, code: str, name: str) -> str:
         f'<p style="font-size:16px;font-weight:bold;margin:0 0 8px">{escape(title)}</p>'
         f'<p style="font-size:14px;margin:0 0 16px">Hi {escape(name)}, {escape(intro)}</p>'
         f'<p style="font-size:32px;letter-spacing:8px;font-weight:bold;color:#008080;margin:0 0 16px">{escape(code)}</p>'
-        '<p style="font-size:13px;color:#4B5563;margin:0 0 16px">Enter this code in the DutyConnect app. '
+        f'<p style="font-size:13px;color:#4B5563;margin:0 0 16px">Enter this code {escape(where)}. '
         'It expires in 15 minutes. If you did not request it, you can ignore this email.</p>'
         f'<p style="font-size:12px;color:#6B7280;margin:0">Sent by {escape(EMAIL_FROM_NAME)}. '
         'We will never ask you to share this code or your password with anyone.</p>'
@@ -163,3 +163,25 @@ async def send_verification_code(to: str, name: str, code: str):
 async def send_reset_code(to: str, name: str, code: str):
     await send_email(to=to, subject=f"Your {EMAIL_FROM_NAME} password reset code",
                      html=_code_template("Reset your password", "use this code to reset your password:", code, name))
+
+
+async def send_deletion_code(to: str, name: str, code: str):
+    await send_email(to=to, subject=f"Your {EMAIL_FROM_NAME} account deletion code",
+                     html=_code_template("Confirm account deletion",
+                                         "use this code to confirm that you want to permanently delete your account:",
+                                         code, name, "on the account deletion page"))
+
+
+async def send_deletion_confirmation(to: str, name: str):
+    html = (
+        '<table role="presentation" width="100%" style="background:#F4F5F7"><tr><td style="padding:24px">'
+        '<table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;'
+        'border-radius:12px"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#111827">'
+        f'<p style="font-size:18px;font-weight:bold;color:#0A192F;margin:0 0 16px">{escape(EMAIL_FROM_NAME)}</p>'
+        '<p style="font-size:16px;font-weight:bold;margin:0 0 8px">Your account has been deleted</p>'
+        f'<p style="font-size:14px;margin:0 0 12px">Hi {escape(name)}, your account, shifts and payment records have been '
+        'permanently deleted. Encrypted backups expire automatically and are not restored for deleted accounts.</p>'
+        '<p style="font-size:13px;color:#4B5563;margin:0">If you did not ask for this, contact support straight away.</p>'
+        '</td></tr></table></td></tr></table>'
+    )
+    await send_email(to=to, subject=f"Your {EMAIL_FROM_NAME} account has been deleted", html=html)

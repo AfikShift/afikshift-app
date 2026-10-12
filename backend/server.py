@@ -22,7 +22,9 @@ from starlette.middleware.cors import CORSMiddleware
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
-from email_service import send_verification_code, send_reset_code  # noqa: E402
+from email_service import send_verification_code, send_reset_code, send_deletion_code, send_deletion_confirmation  # noqa: E402
+from public_pages import router as public_router  # noqa: E402
+from security import install_security  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("dutyconnect")
@@ -39,6 +41,9 @@ CODE_MAX_ATTEMPTS = 5
 LOGIN_MAX_FAILS = 5  # per account + IP
 ACCOUNT_MAX_FAILS = 10  # per account, any IP/device
 DEV_LOG_CODES = os.environ.get("DEV_LOG_CODES", "false").lower() == "true"
+TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS", "0"))
+# SHA-256 of signing secrets known from development; production refuses to start with them.
+KNOWN_DEV_SECRET_HASHES = {"f6e5a38b840f06c7c7f6e96fecd263e0c50f63e2d6f0c52ea280a875279affdb"}
 
 # Feature flags per plan. Subscriptions (Phase 4) only change the user's `plan`;
 # the app reads `features` from /api/me so no rebuild is needed.
@@ -242,9 +247,14 @@ def account_hash(email: str) -> str:
 
 
 def client_ip(request: Request) -> str:
-    # Secondary signal only; X-Forwarded-For can be spoofed, so the per-account limit is the real control.
-    xff = request.headers.get("x-forwarded-for", "")
-    return xff.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    # Behind N trusted proxies (TRUSTED_PROXY_HOPS, set in production) the real client is the N-th
+    # address from the right of X-Forwarded-For; earlier entries can be forged by the client. With 0
+    # (preview default) the first entry is used, so the per-account limit remains the real control.
+    xff = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    hops = TRUSTED_PROXY_HOPS
+    if hops > 0:
+        return xff[-hops] if len(xff) >= hops else (request.client.host if request.client else "unknown")
+    return xff[0] if xff else (request.client.host if request.client else "unknown")
 
 
 GENERIC_SENT = {"message": "If the details are valid, a code has been sent to the email address."}
@@ -356,6 +366,9 @@ async def refresh(body: TokenIn):
         {"hash": digest(body.refresh_token), "revoked": False, "expires_at": {"$gt": now()}},
         {"$set": {"hash": digest(raw), "expires_at": now() + timedelta(days=REFRESH_DAYS)}})
     if not s:
+        gone = await db.sessions.find_one({"hash": digest(body.refresh_token), "account_deleted": True})
+        if gone:
+            raise HTTPException(410, "account_deleted")  # tells the device to wipe its local copy
         raise HTTPException(401, "Invalid refresh token")
     return {"access_token": make_access(s["user_id"]), "refresh_token": raw, "token_type": "bearer"}
 
@@ -422,12 +435,50 @@ async def change_password(body: ChangePasswordIn, user: dict = Depends(current_u
 async def delete_me(body: DeleteAccountIn, user: dict = Depends(current_user)):
     if not verify_password(body.password, user["password_hash"]):
         raise HTTPException(400, "Password is incorrect")
+    await delete_user_data(user, via="app")
+    return {"ok": True}
+
+
+async def delete_user_data(user: dict, via: str):
+    """Permanently remove an officer's personal data (profile, shifts incl. Recently Deleted, payments,
+    codes). Sessions are kept only as revoked hashes flagged account_deleted, so the officer's other
+    devices learn to wipe their local copy; they expire with the refresh token. A deletion-log entry
+    (keyed hash + date, no email) lets restore_backup re-apply the deletion after a backup restore."""
     uid = user["id"]
-    # Permanently remove all personal data for this user.
-    for coll in ("sessions", "action_codes", "pp_shifts", "payments"):
+    for coll in ("action_codes", "pp_shifts", "payments"):
         await db[coll].delete_many({"user_id": uid})
+    await db.sessions.update_many({"user_id": uid}, {"$set": {"revoked": True, "account_deleted": True}})
+    await db.login_attempts.delete_one({"key": "acct:" + account_hash(user["email"])})
+    await db.deletion_log.insert_one({"user_id": uid, "account_hash": account_hash(user["email"]),
+                                      "deleted_at": now(), "via": via})
     await db.users.delete_one({"id": uid})
-    logger.info(f"Account deleted: {uid}")
+    send_later(send_deletion_confirmation, user["email"], user["full_name"])
+    logger.info(f"Account deleted: {uid} via {via}")
+
+
+# ---------------------------------------------------------------- public account deletion (no login)
+class DeletionConfirmIn(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6)
+    confirm: Literal[True]
+
+
+@api.post("/public/account-deletion/request", status_code=202)
+async def deletion_request(body: EmailIn):
+    """Send a single-use, 15-minute code. Same response whether or not the account exists."""
+    user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
+    if user and not await recently_sent(user["id"], "delete"):
+        code = await create_code(user["id"], "delete")
+        send_later(send_deletion_code, user["email"], user["full_name"], code)
+    return GENERIC_SENT
+
+
+@api.post("/public/account-deletion/confirm")
+async def deletion_confirm(body: DeletionConfirmIn):
+    user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
+    if not user or not await consume_code(user["id"], "delete", body.code):
+        raise HTTPException(400, "Invalid or expired code")
+    await delete_user_data(user, via="web")
     return {"ok": True}
 
 
@@ -479,6 +530,24 @@ class PaymentIn(BaseModel):
         return self
 
 
+class DecisionIn(BaseModel):
+    """The officer's explicit choice in a payment edit clash. Immutable and merged by id, so a choice
+    never deletes payment history; a later choice lists the choices it `supersedes`. Two live choices
+    keeping different versions (made on two devices) stay a visible clash until chosen again."""
+    id: str = Field(pattern=UUID_RE)
+    origin_id: str = Field(pattern=UUID_RE)
+    keep_id: str = Field(pattern=UUID_RE)
+    rejected: List[str] = Field(default_factory=list, max_length=20)
+    supersedes: List[str] = Field(default_factory=list, max_length=50)
+
+    @field_validator("rejected", "supersedes")
+    @classmethod
+    def _ids(cls, v):
+        if any(not re.match(UUID_RE, x) for x in v):
+            raise ValueError("Invalid id")
+        return v
+
+
 class ShiftData(BaseModel):
     officer_name: str = Field(min_length=1, max_length=80)
     duty_type: Literal["bed_watch", "constant_watch", "other"]
@@ -491,6 +560,7 @@ class ShiftData(BaseModel):
     status: Literal["booked", "completed", "cancelled"] = "booked"
     hourly_rate: Optional[float] = Field(default=None, ge=0, le=500)
     payments: List[PaymentIn] = Field(default_factory=list, max_length=200)
+    payment_decisions: List[DecisionIn] = Field(default_factory=list, max_length=200)
     # payment_status is always derived from payments; any client value is ignored.
 
     @model_validator(mode="after")
@@ -539,20 +609,48 @@ def merge_payments(server: list, incoming: list) -> list:
     return sorted(out.values(), key=lambda p: (p["date"], p["id"]))
 
 
-def counted_payments(payments: list) -> tuple:
-    """Active payments with edit clashes collapsed so a payment edited on two devices is never
-    counted twice. Until the officer picks the correct one, only the lowest version counts and the
-    figures are flagged provisional. Mirrors countedPayments() in the app."""
+def merge_decisions(server: list, incoming: list) -> list:
+    """Union by id; decisions are immutable so nothing recorded on any device is lost."""
+    out = {d["id"]: dict(d) for d in incoming}
+    out.update({d["id"]: dict(d) for d in server})
+    return sorted(out.values(), key=lambda d: d["id"])
+
+
+def group_candidates(active: list, decisions: list) -> tuple:
+    """Versions of one original payment that may count, and whether the figure is provisional.
+    - no live decision: every active version is a candidate (2+ = edit clash)
+    - one kept version across live decisions: the rejected versions stop counting (kept in history)
+    - live decisions keeping different versions (two devices): decision clash, both stay candidates."""
+    superseded = {s for d in decisions for s in d.get("supersedes", [])}
+    live = [d for d in decisions if d["id"] not in superseded]
+    keeps = {d["keep_id"] for d in live}
+    if len(keeps) > 1:
+        cands = [p for p in active if p["id"] in keeps] or active
+        return cands, True
+    rejected = {r for d in live for r in d.get("rejected", [])}
+    cands = [p for p in active if p["id"] not in rejected]
+    return cands, len(cands) > 1
+
+
+def counted_payments(payments: list, decisions: Optional[list] = None) -> tuple:
+    """Payments that count towards totals. A payment edited on two devices is never counted twice:
+    while unresolved only the lowest candidate counts and the figures are flagged provisional.
+    Mirrors countedPayments() in the app."""
     groups: dict = {}
     for p in payments:
         if not p.get("deleted"):
             groups.setdefault(p.get("origin_id") or p["id"], []).append(p)
-    counted = [min(g, key=lambda p: (round(p["amount"] * 100), p["id"])) for g in groups.values()]
-    return counted, any(len(g) > 1 for g in groups.values())
+    counted, clash = [], False
+    for origin, g in groups.items():
+        cands, provisional = group_candidates(g, [d for d in decisions or [] if d["origin_id"] == origin])
+        clash = clash or provisional
+        if cands:
+            counted.append(min(cands, key=lambda p: (round(p["amount"] * 100), p["id"])))
+    return counted, clash
 
 
-def payment_fields(estimated: Optional[float], payments: list) -> dict:
-    counted, clash = counted_payments(payments)
+def payment_fields(estimated: Optional[float], payments: list, decisions: Optional[list] = None) -> dict:
+    counted, clash = counted_payments(payments, decisions)
     pence = sum(round(p["amount"] * 100) for p in counted)
     received = pence / 100
     outstanding = None if estimated is None else (round(estimated * 100) - pence) / 100
@@ -569,14 +667,16 @@ def computed(d: dict) -> dict:
     hours = round((shift_minutes(d["start_time"], d["end_time"]) - d["break_minutes"]) / 60, 2)
     rate = d.get("hourly_rate")
     est = round(hours * rate, 2) if rate is not None else None
-    return {"payable_hours": hours, "estimated_earnings": est, **payment_fields(est, d.get("payments", []))}
+    return {"payable_hours": hours, "estimated_earnings": est,
+            **payment_fields(est, d.get("payments", []), d.get("payment_decisions", []))}
 
 
 def shift_out(doc: dict) -> dict:
     out = {k: v for k, v in doc.items() if k not in ("_id", "user_id", "last_change_id")}
     out.setdefault("payments", [])
+    out.setdefault("payment_decisions", [])
     # Always derive payment status from recorded payments (legacy manual statuses become Pending).
-    out.update(payment_fields(out.get("estimated_earnings"), out["payments"]))
+    out.update(payment_fields(out.get("estimated_earnings"), out["payments"], out["payment_decisions"]))
     out.setdefault("deleted_at", None)
     for k in ("created_at", "updated_at", "deleted_at"):
         if isinstance(out.get(k), datetime):
@@ -601,6 +701,7 @@ async def apply_change(uid: str, ch: ShiftChange) -> dict:
     if incoming:
         if cur:
             incoming["payments"] = merge_payments(cur.get("payments", []), incoming["payments"])
+            incoming["payment_decisions"] = merge_decisions(cur.get("payment_decisions", []), incoming["payment_decisions"])
         fields.update(incoming, **computed(incoming))
     if not cur:
         if ch.base_version != 0:
@@ -614,9 +715,12 @@ async def apply_change(uid: str, ch: ShiftChange) -> dict:
     if ch.base_version != cur["version"]:
         # Shift details conflict and need the officer's choice, but payments are merged immediately
         # so nothing recorded on either device is lost.
-        if incoming and not cur.get("deleted") and incoming["payments"] != cur.get("payments", []):
-            merged = {**cur, "payments": incoming["payments"]}
-            upd = {"payments": incoming["payments"], **computed(merged), "updated_at": now()}
+        if incoming and not cur.get("deleted") and (
+                incoming["payments"] != cur.get("payments", [])
+                or incoming["payment_decisions"] != cur.get("payment_decisions", [])):
+            merged = {**cur, "payments": incoming["payments"], "payment_decisions": incoming["payment_decisions"]}
+            upd = {"payments": incoming["payments"], "payment_decisions": incoming["payment_decisions"],
+                   **computed(merged), "updated_at": now()}
             res = await db.pp_shifts.find_one_and_update(
                 {"id": ch.id, "user_id": uid, "version": cur["version"]},
                 {"$set": upd, "$inc": {"version": 1}}, projection={"_id": 0}, return_document=True)
@@ -656,6 +760,8 @@ async def sync_shifts(body: SyncIn, user: dict = Depends(current_user)):
 
 
 app.include_router(api)
+app.include_router(public_router)
+install_security(app, client_ip)
 
 app.add_middleware(
     CORSMiddleware,
@@ -680,6 +786,39 @@ async def startup():
     await db.pp_shifts.create_index([("user_id", 1), ("updated_at", 1)])
     await db.login_attempts.create_index("key", unique=True)
     await db.login_attempts.create_index("expires_at", expireAfterSeconds=0)
+    # Deletion log outlives the longest backup so restores can re-apply deletions.
+    await db.deletion_log.create_index("deleted_at", expireAfterSeconds=DELETION_LOG_DAYS * 86400)
+    if os.environ.get("ENVIRONMENT", "development") == "production":
+        problems = production_config_problems()
+        if problems:
+            raise RuntimeError("Unsafe production configuration: " + "; ".join(problems))
+
+
+DELETION_LOG_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "35")) + 30
+
+
+def production_config_problems() -> list:
+    """Refuse to start in production with development settings or placeholders."""
+    p = []
+    if DEV_LOG_CODES:
+        p.append("DEV_LOG_CODES must be false")
+    if len(JWT_SECRET) < 32 or digest(JWT_SECRET) in KNOWN_DEV_SECRET_HASHES or "REPLACE" in JWT_SECRET:
+        p.append("JWT_SECRET must be a new random value of at least 32 characters (not the development one)")
+    if TRUSTED_PROXY_HOPS < 1:
+        p.append("TRUSTED_PROXY_HOPS must be set to the number of reverse proxies in front of the API")
+    if os.environ.get("EMAIL_PROVIDER", "emergent") == "resend":
+        if "REPLACE" in os.environ.get("RESEND_API_KEY", "REPLACE"):
+            p.append("RESEND_API_KEY is not set")
+        if "YOUR-DOMAIN" in os.environ.get("EMAIL_FROM_ADDRESS", "YOUR-DOMAIN"):
+            p.append("EMAIL_FROM_ADDRESS still has a placeholder")
+    origins = os.environ.get("CORS_ORIGINS", "")
+    if "*" in origins or "localhost" in origins or "preview.emergentagent.com" in origins:
+        p.append("CORS_ORIGINS must list only production origins")
+    for k in ("PUBLIC_BASE_URL", "SUPPORT_EMAIL", "DATA_CONTROLLER_NAME"):
+        v = os.environ.get(k, "")
+        if not v or "YOUR-DOMAIN" in v or "[" in v:
+            p.append(f"{k} still has a placeholder")
+    return p
 
 
 @app.on_event("shutdown")

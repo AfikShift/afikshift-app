@@ -19,6 +19,7 @@ export type ShiftData = {
   status: ShiftStatus;
   hourly_rate: number | null;
   payments: Payment[];
+  payment_decisions: Decision[];
 };
 
 /** Union by id; a deletion on any device wins (sticky tombstone). Mirrors the server merge. */
@@ -33,35 +34,71 @@ export function mergePayments(a: Payment[] = [], b: Payment[] = []): Payment[] {
   return [...m.values()].sort((x, y) => (x.date === y.date ? x.id.localeCompare(y.id) : x.date.localeCompare(y.date)));
 }
 
-/** Active payments grouped by the original payment they descend from. */
-export function paymentGroups(payments: Payment[] = []) {
+/** An explicit choice in a payment clash. Immutable; merged by id across devices (never deletes history).
+ *  `pending` exists only on this device until the server has confirmed the choice. */
+export type Decision = { id: string; origin_id: string; keep_id: string; rejected: string[]; supersedes: string[]; pending?: boolean };
+
+export type PaymentGroup = {
+  origin: string;
+  candidates: Payment[]; // versions that may count (2+ = unresolved)
+  hidden: Payment[]; // versions not counted because of a confirmed choice (kept in history)
+  kind: "none" | "edit" | "decision"; // edit = edited on two devices; decision = different choices on two devices
+  pending: boolean; // a choice made here is waiting to sync
+  liveIds: string[]; // live decision ids (a new choice supersedes them)
+};
+
+/** Group active payments by original payment and apply decisions. Mirrors group_candidates() on the server. */
+export function paymentGroups(payments: Payment[] = [], decisions: Decision[] = []): PaymentGroup[] {
   const g = new Map<string, Payment[]>();
   for (const p of payments) if (!p.deleted) g.set(p.origin_id || p.id, [...(g.get(p.origin_id || p.id) ?? []), p]);
-  return [...g.values()];
+  return [...g.entries()].map(([origin, active]) => {
+    const ds = decisions.filter((d) => d.origin_id === origin);
+    const superseded = new Set(ds.flatMap((d) => d.supersedes));
+    const live = ds.filter((d) => !superseded.has(d.id));
+    const keeps = new Set(live.map((d) => d.keep_id));
+    let candidates: Payment[];
+    let kind: PaymentGroup["kind"];
+    if (keeps.size > 1) {
+      candidates = active.filter((p) => keeps.has(p.id));
+      if (!candidates.length) candidates = active;
+      kind = "decision";
+    } else {
+      const rejected = new Set(live.flatMap((d) => d.rejected));
+      candidates = active.filter((p) => !rejected.has(p.id));
+      kind = candidates.length > 1 ? "edit" : "none";
+    }
+    return { origin, candidates, hidden: active.filter((p) => !candidates.includes(p)), kind, pending: live.some((d) => d.pending), liveIds: live.map((d) => d.id) };
+  });
 }
 
-/** Groups where one payment was edited differently on two devices (an edit clash). */
-export function clashGroups(payments: Payment[] = []) {
-  return paymentGroups(payments).filter((g) => g.length > 1);
+/** Union by id; the server's copy wins (it clears this device's `pending` flag). */
+export function mergeDecisions(local: Decision[] = [], server: Decision[] = []): Decision[] {
+  const m = new Map<string, Decision>();
+  for (const d of local) m.set(d.id, d);
+  for (const d of server) m.set(d.id, d);
+  return [...m.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
-/** Payments that count towards totals: in a clash only the lowest version counts (provisional),
- *  so a payment is never counted twice. Mirrors counted_payments() on the server. */
-export function countedPayments(payments: Payment[] = []) {
+/** Payments that count towards totals: while a clash is unresolved only the lowest candidate counts
+ *  (provisional), so a payment is never counted twice. Mirrors counted_payments() on the server. */
+export function countedPayments(payments: Payment[] = [], decisions: Decision[] = []) {
   const byLowest = (a: Payment, b: Payment) => Math.round(a.amount * 100) - Math.round(b.amount * 100) || (a.id < b.id ? -1 : 1);
-  return paymentGroups(payments).map((g) => [...g].sort(byLowest)[0]);
+  return paymentGroups(payments, decisions)
+    .filter((g) => g.candidates.length)
+    .map((g) => [...g.candidates].sort(byLowest)[0]);
 }
 
-/** Received / outstanding / status, always derived from recorded payments (pence arithmetic). */
-export function paymentSummary(estimated: number | null, payments: Payment[] = []) {
-  const pence = countedPayments(payments).reduce((a, p) => a + Math.round(p.amount * 100), 0);
+/** Received / outstanding / status, always derived from recorded payments (pence arithmetic).
+ *  Provisional (payment_clash) while any clash is unresolved or a choice is still waiting to sync. */
+export function paymentSummary(estimated: number | null, payments: Payment[] = [], decisions: Decision[] = []) {
+  const pence = countedPayments(payments, decisions).reduce((a, p) => a + Math.round(p.amount * 100), 0);
   const estP = estimated == null ? null : Math.round(estimated * 100);
   const status: PaymentStatus = pence === 0 ? "pending" : estP != null && pence >= estP ? "paid" : "partially_paid";
   return {
     amount_received: pence / 100,
     outstanding: estP == null ? null : (estP - pence) / 100,
     payment_status: status,
-    payment_clash: clashGroups(payments).length > 0,
+    payment_clash: paymentGroups(payments, decisions).some((g) => g.kind !== "none" || g.pending),
   };
 }
 

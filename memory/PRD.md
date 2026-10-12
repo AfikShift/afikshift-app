@@ -69,3 +69,12 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Single calculation module `src/shifts/stats.ts summarise()` used by Home, Earnings, History, reports.
 - Tests: 98/98 backend (84 existing + 14 in tests/test_m3b_safeguards.py), run serially `pytest -n 0`. Frontend E2E iteration_5 pass.
 ## Next (needs approval): Milestone 3c export/backup; Phase 3 SMS forwarding; Phase 4 billing/admin.
+
+## Milestone 3c — DONE (dev/preview only; nothing published)
+- Payment decisions: immutable `payment_decisions` (keep_id, rejected, supersedes) merged by id; two-device different choices stay a visible "decision clash" (provisional, lower counted once); explicit confirm step; local choice "waiting to sync" until server confirms.
+- Security: security.py (headers, streaming 2MB body cap, per-IP rate limit 600/min, deletion endpoints 10/min), TRUSTED_PROXY_HOPS, production config guard (refuses dev secret/placeholders), email log scrub. Audit: SEC-001/002/005 fixed; SEC-003 (per-account lockout DoS) & SEC-004 (web build storage) documented.
+- Public pages (no login): /api/public/privacy, /terms, /delete-account (email code, single-use, 15 min, 5 attempts, explicit checkbox, confirmation email). Deleted account → refresh returns 410 → device wipes local copy. deletion_log (no email) for backup re-application.
+- Backups: ops/backup.py & ops/restore.py (AES-256 PBKDF2, chmod 600/700, SHA-256 checksum, 35-day retention, deletion re-apply).
+- Docs: docs/BACKUPS.md, docs/HOSTING.md, docs/GOOGLE_PLAY.md (Data Safety evidence table + gaps), backend/.env.example, deploy/Dockerfile, deploy/docker-compose.yml.
+- Tests: 122/122 backend serial (98 + 24 in tests/test_m3c.py); frontend E2E iteration_6 pass.
+- Placeholders to replace: PUBLIC_BASE_URL, SUPPORT_EMAIL, DATA_CONTROLLER_NAME, POLICY_LAST_UPDATED, EMAIL_FROM_ADDRESS, provider names/log period in public_pages.py, Android package id.

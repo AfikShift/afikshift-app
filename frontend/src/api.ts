@@ -43,6 +43,12 @@ async function raw(path: string, init: RequestInit = {}, auth = true): Promise<R
   return fetch(`${BASE}${path}`, { ...init, headers: { ...headers, ...(init.headers as any) } });
 }
 
+let onAccountDeleted: (() => Promise<void> | void) | null = null;
+/** Called when the server reports this account was deleted (e.g. via the web page) so local data is wiped. */
+export function setAccountDeletedHandler(fn: () => Promise<void> | void) {
+  onAccountDeleted = fn;
+}
+
 export async function tryRefresh(): Promise<boolean> {
   if (refreshing) return refreshing;
   refreshing = (async () => {
@@ -52,6 +58,10 @@ export async function tryRefresh(): Promise<boolean> {
       const r = await raw("/auth/refresh", { method: "POST", body: JSON.stringify({ refresh_token: token }) }, false);
       if (!r.ok) {
         if (r.status === 401) await clearTokens();
+        if (r.status === 410) {
+          await clearTokens();
+          await onAccountDeleted?.();
+        }
         return false;
       }
       await saveTokens(await r.json());

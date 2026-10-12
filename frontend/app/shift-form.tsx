@@ -61,6 +61,7 @@ export default function ShiftForm() {
         status: source.status,
         hourly_rate: source.hourly_rate,
         payments: [],
+        payment_decisions: [],
       };
       // Duplicate: next day, fresh status, current profile rate, no payments copied.
       return editing ? base : { ...base, date: addDays(source.date, 1), status: "booked", hourly_rate: user?.hourly_rate ?? null, officer_name: user?.full_name ?? base.officer_name };
@@ -77,6 +78,7 @@ export default function ShiftForm() {
       status: "booked",
       hourly_rate: user?.hourly_rate ?? null,
       payments: [],
+      payment_decisions: [],
     };
   });
   const [rateText, setRateText] = useState(f.hourly_rate != null ? String(f.hourly_rate) : "");
@@ -93,7 +95,7 @@ export default function ShiftForm() {
   const clashes = useMemo(() => overlaps({ ...f, id: editing?.id }, shifts), [f, editing?.id, shifts]);
 
   const save = async () => {
-    const data: ShiftData = { ...f, officer_name: f.officer_name.trim(), location: f.location.trim(), hourly_rate: rateNum, payments: editing?.payments ?? [] };
+    const data: ShiftData = { ...f, officer_name: f.officer_name.trim(), location: f.location.trim(), hourly_rate: rateNum, payments: editing?.payments ?? [], payment_decisions: editing?.payment_decisions ?? [] };
     const e = validateShift(data);
     if (rateNum != null && (!isFinite(rateNum) || rateNum < 0 || rateNum > 500)) e.hourly_rate = "Enter a rate between 0 and 500.";
     setErrors(e);
@@ -101,7 +103,7 @@ export default function ShiftForm() {
     setSaving(true);
     try {
       // Editing never touches payments: the store keeps the latest payment list (incl. other devices').
-      const { payments: _ignored, ...details } = data;
+      const { payments: _ignored, payment_decisions: _ignoredDecisions, ...details } = data;
       if (editing) await update(editing.id, details);
       else await create(data);
       toast(clashes.length ? "Shift saved — note: it overlaps another shift" : "Shift saved", clashes.length ? "info" : "success");

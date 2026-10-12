@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import { ApiError, REFRESH_KEY, clearTokens, request, saveTokens, setSessionExpiredHandler, tryRefresh } from "@/src/api";
+import { ApiError, REFRESH_KEY, clearTokens, request, saveTokens, setAccountDeletedHandler, setSessionExpiredHandler, tryRefresh } from "@/src/api";
 import { removeEncrypted, shiftsKey } from "@/src/shifts/local-store";
 import { storage } from "@/src/utils/storage";
 
@@ -67,6 +67,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setSessionExpiredHandler(() => {
       signOutLocal();
+    });
+  }, [signOutLocal]);
+
+  // Account deleted elsewhere (web deletion page or another device): wipe this device's copy.
+  useEffect(() => {
+    setAccountDeletedHandler(async () => {
+      const cached = await storage.secureGet(USER_CACHE_KEY, null as string | null);
+      if (cached) await removeEncrypted(shiftsKey(JSON.parse(cached).id));
+      await storage.removeItem(BIOMETRIC_KEY);
+      setBio(false);
+      await signOutLocal();
     });
   }, [signOutLocal]);
 

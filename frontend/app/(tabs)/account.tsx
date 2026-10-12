@@ -1,5 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
@@ -10,6 +11,9 @@ import { useToast } from "@/src/components/toast";
 import { Card, ListRow, SectionTitle } from "@/src/components/ui";
 import { currencySymbol, initials } from "@/src/format";
 import { useShifts } from "@/src/shifts/provider";
+
+/** Public pages (no login needed); the host comes from configuration. */
+const openPublic = (page: "privacy" | "terms") => WebBrowser.openBrowserAsync(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/public/${page}`);
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 export default function Account() {
@@ -82,6 +86,8 @@ export default function Account() {
         <SectionTitle>Support</SectionTitle>
         <Card style={styles.group}>
           <ListRow testID="account-messages-row" icon="chatbubbles-outline" title="SMS forwarding" onPress={() => router.push("/messages")} />
+          <ListRow testID="account-privacy-row" icon="document-lock-outline" title="Privacy policy" onPress={() => openPublic("privacy")} />
+          <ListRow testID="account-terms-row" icon="document-text-outline" title="Terms of use" onPress={() => openPublic("terms")} />
           <ListRow testID="account-support-row" icon="help-buoy-outline" title="Help & support" onPress={() => toast("Support contact will be added before launch", "info")} last />
         </Card>
 

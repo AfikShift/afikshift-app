@@ -1,0 +1,15 @@
+# Example self-hosted stack. Prefer a managed MongoDB in production; if you use this local one,
+# keep port 27017 closed to the internet and enable MongoDB authentication.
+services:
+  api:
+    build: { context: .., dockerfile: deploy/Dockerfile }
+    env_file: ../backend/.env
+    ports: ["127.0.0.1:8001:8001"]   # reverse proxy (HTTPS) in front
+    restart: unless-stopped
+    depends_on: [mongo]
+  mongo:
+    image: mongo:7
+    volumes: ["mongo-data:/data/db"]
+    restart: unless-stopped
+volumes:
+  mongo-data:

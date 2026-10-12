@@ -5,7 +5,7 @@ import { AppState, Platform } from "react-native";
 
 import { ApiError, request } from "@/src/api";
 import { useAuth } from "@/src/auth";
-import { Payment, PaymentStatus, ShiftData, clashGroups, estimatedEarnings, interval, mergePayments, payableHours, paymentSummary } from "@/src/shifts/calc";
+import { Decision, Payment, PaymentStatus, ShiftData, estimatedEarnings, interval, mergeDecisions, mergePayments, payableHours, paymentGroups, paymentSummary } from "@/src/shifts/calc";
 import { loadEncrypted, saveEncrypted, shiftsKey } from "@/src/shifts/local-store";
 
 export type ServerShift = ShiftData & {
@@ -76,18 +76,32 @@ function purgeExpired(shifts: Record<string, LocalShift>) {
 function withComputed(d: ShiftData) {
   const h = payableHours(d.start_time, d.end_time, d.break_minutes);
   const est = estimatedEarnings(h, d.hourly_rate);
-  return { payable_hours: h, estimated_earnings: est, ...paymentSummary(est, d.payments) };
+  return { payable_hours: h, estimated_earnings: est, ...paymentSummary(est, d.payments, d.payment_decisions) };
 }
 
 function pickData(s: LocalShift): ShiftData {
   const { officer_name, duty_type, shift_period, date, start_time, end_time, break_minutes, location, status, hourly_rate } = s;
-  return { officer_name, duty_type, shift_period, date, start_time, end_time, break_minutes, location, status, hourly_rate, payments: s.payments ?? [] };
+  return {
+    officer_name, duty_type, shift_period, date, start_time, end_time, break_minutes, location, status, hourly_rate,
+    payments: s.payments ?? [],
+    payment_decisions: s.payment_decisions ?? [],
+  };
+}
+
+/** Merge payments and decisions from another copy (another device / the server) into local data. */
+function mergeIn(local: LocalShift, other?: ServerShift | null): ShiftData {
+  return {
+    ...pickData(local),
+    payments: mergePayments(local.payments, other?.payments),
+    payment_decisions: mergeDecisions(local.payment_decisions, other?.payment_decisions),
+  };
 }
 
 /** Normalise a server copy (older records may lack payments). */
 function fromServer(s: ServerShift): LocalShift {
   const payments = s.payments ?? [];
-  return { ...s, payments, ...paymentSummary(s.estimated_earnings, payments), _sync: "synced" };
+  const payment_decisions = s.payment_decisions ?? [];
+  return { ...s, payments, payment_decisions, ...paymentSummary(s.estimated_earnings, payments, payment_decisions), _sync: "synced" };
 }
 
 export function ShiftsProvider({ children }: { children: React.ReactNode }) {
@@ -175,12 +189,12 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
                 shifts[r.id] = fromServer(r.server);
               } else {
                 // Edited again meanwhile: keep local edits, pick up payments from other devices.
-                const data = { ...pickData(local), payments: mergePayments(local.payments, r.server.payments) };
+                const data = mergeIn(local, r.server);
                 shifts[r.id] = { ...local, ...data, ...withComputed(data), version: r.server.version };
               }
             } else if (r.status === "conflict") {
               // Payments are merged automatically; only shift details await the officer's choice.
-              const data = { ...pickData(local), payments: mergePayments(local.payments, r.server?.payments) };
+              const data = mergeIn(local, r.server);
               shifts[r.id] = { ...local, ...data, ...withComputed(data), _sync: "conflict", _server: r.server };
             } else if (r.status === "rejected") {
               delete shifts[r.id];
@@ -321,10 +335,19 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
       resolvePaymentClash: async (id, keepPaymentId) => {
         await write(id, (prev) => {
           if (!prev) throw new Error("Shift not found");
-          const group = clashGroups(prev.payments).find((g) => g.some((p) => p.id === keepPaymentId)) ?? [];
-          const drop = new Set(group.filter((p) => p.id !== keepPaymentId).map((p) => p.id));
-          const payments = prev.payments.map((x) => (drop.has(x.id) ? { ...x, deleted: true } : x));
-          const data = { ...pickData(prev), payments };
+          const group = paymentGroups(prev.payments, prev.payment_decisions).find((g) => g.candidates.some((p) => p.id === keepPaymentId));
+          if (!group) throw new Error("Payment not found");
+          // Record the choice as a decision; no payment is deleted, so history and the other device's
+          // records are preserved. It supersedes the live choices, so a two-device clash is settled.
+          const decision: Decision = {
+            id: Crypto.randomUUID(),
+            origin_id: group.origin,
+            keep_id: keepPaymentId,
+            rejected: [...group.candidates, ...group.hidden].map((p) => p.id).filter((x) => x !== keepPaymentId),
+            supersedes: group.liveIds,
+            pending: true,
+          };
+          const data = { ...pickData(prev), payment_decisions: [...(prev.payment_decisions ?? []), decision] };
           return { ...prev, ...data, ...withComputed(data), _sync: prev._sync === "conflict" ? "conflict" : "pending", _change_id: Crypto.randomUUID() };
         });
       },
@@ -337,17 +360,17 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
           if (keep === "server") {
             if (server?.deleted) shifts[id] = fromServer(server); // stays in Recently Deleted
             else if (server) {
-              // Use the server's shift details, but keep every payment from both devices.
-              const payments = mergePayments(server.payments, local.payments);
-              const extra = JSON.stringify(payments) !== JSON.stringify(mergePayments(server.payments, []));
+              // Use the server's shift details, but keep every payment and choice from both devices.
               const base = fromServer(server);
-              shifts[id] = extra
-                ? { ...base, payments, ...withComputed({ ...pickData(base), payments }), _sync: "pending", _change_id: Crypto.randomUUID() }
-                : base;
+              const data = mergeIn(base, local as unknown as ServerShift);
+              const extra =
+                JSON.stringify(data.payments) !== JSON.stringify(base.payments) ||
+                JSON.stringify(data.payment_decisions) !== JSON.stringify(mergeDecisions([], base.payment_decisions));
+              shifts[id] = extra ? { ...base, ...data, ...withComputed(data), _sync: "pending", _change_id: Crypto.randomUUID() } : base;
             } else delete shifts[id];
           } else {
             // Keep my version: re-base on the server's latest version so the next push applies it.
-            const data = { ...pickData(local), payments: mergePayments(local.payments, server?.payments) };
+            const data = mergeIn(local, server);
             shifts[id] = { ...local, ...data, ...withComputed(data), version: server?.version ?? 0, _sync: "pending", _server: undefined, _change_id: Crypto.randomUUID() };
           }
           return { ...prev, shifts };
