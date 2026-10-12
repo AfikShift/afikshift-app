@@ -1,7 +1,7 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { KeyboardAwareScrollView, KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -39,8 +39,28 @@ import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme"
 const PRESETS: Record<ShiftPeriod, [string, string]> = { day: ["08:00", "20:00"], night: ["20:00", "08:00"] };
 const BREAKS = ["0", "30", "45", "60"] as const;
 
-export default function ShiftForm() {
-  const params = useLocalSearchParams<{ id?: string; duplicate?: string; date?: string }>();
+type FormParams = { id?: string; duplicate?: string; date?: string; n?: string };
+
+/** Remounts the form whenever it is opened with different params (or cleared), so a new shift never
+ *  shows details left over from an earlier edit/duplicate (the router can re-use the screen). */
+export default function ShiftFormScreen() {
+  const params = useLocalSearchParams<FormParams>();
+  const [reset, setReset] = useState(0);
+  const [fresh, setFresh] = useState(false);
+  const key = `${params.id ?? ""}|${params.duplicate ?? ""}|${params.date ?? ""}|${params.n ?? ""}`;
+  const [lastKey, setLastKey] = useState(key);
+  if (key !== lastKey) {
+    setLastKey(key);
+    setFresh(false);
+  }
+  const clear = () => {
+    if (!params.id) setFresh(true); // Add / duplicate: back to a blank new shift
+    setReset((r) => r + 1); // Edit: back to the saved details
+  };
+  return <ShiftForm key={`${key}|${reset}`} params={fresh ? { date: params.date } : params} onClear={clear} />;
+}
+
+function ShiftForm({ params, onClear }: { params: FormParams; onClear: () => void }) {
   const { user } = useAuth();
   const { byId, create, update, shifts, atShiftLimit } = useShifts();
   const router = useRouter();
@@ -139,7 +159,14 @@ export default function ShiftForm() {
 
   return (
     <View style={styles.root} testID="shift-form-screen">
-      <StackHeader title={title} />
+      <StackHeader
+        title={title}
+        right={
+          <Pressable testID="shift-clear-button" onPress={onClear} hitSlop={8} accessibilityLabel={editing ? "Undo changes" : "Clear form"}>
+            <Text style={styles.clear}>{editing ? "Undo changes" : "Clear"}</Text>
+          </Pressable>
+        }
+      />
       <KeyboardAwareScrollView bottomOffset={140} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <PrivacyNotice />
         <SectionTitle>Shift type</SectionTitle>
@@ -308,6 +335,7 @@ function typeOptions(id: string, specialist: boolean) {
 }
 
 const useStyles = makeStyles((c) => ({
+  clear: { fontFamily: fonts.semibold, fontSize: type.base, color: c.brandSecondary },
   limitText: { fontFamily: fonts.medium, fontSize: type.base, color: c.onSurface, lineHeight: 22 },
   root: { flex: 1, backgroundColor: c.surface },
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },

@@ -1,6 +1,8 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { ActivityIndicator, Pressable, Text } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
+import { useAuth } from "@/src/auth";
 import { useToast } from "@/src/components/toast";
 import { SyncState, useShifts } from "@/src/shifts/provider";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
@@ -40,6 +42,34 @@ export function SyncBadge() {
         {LABEL[syncState]}
       </Text>
     </Pressable>
+  );
+}
+
+/** Refresh (sync + profile) button with the sync badge, for tab headers. */
+export function HeaderActions() {
+  const { syncNow } = useShifts();
+  const { refreshUser } = useAuth();
+  const { colors } = useTheme();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const refresh = async () => {
+    setBusy(true);
+    try {
+      await Promise.all([syncNow(), refreshUser()]);
+      toast("Up to date", "success");
+    } catch {
+      toast("Couldn't refresh – check your connection", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <Pressable testID="header-refresh-button" onPress={refresh} disabled={busy} hitSlop={8} accessibilityLabel="Refresh" style={{ padding: 6 }}>
+        {busy ? <ActivityIndicator size="small" color={colors.onSurface} /> : <Ionicons name="refresh" size={20} color={colors.onSurface} />}
+      </Pressable>
+      <SyncBadge />
+    </View>
   );
 }
 

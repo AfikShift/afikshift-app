@@ -124,3 +124,5 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Earnings tab reworked for monthly-paid users: hero = EXPECTED PAY · END OF <MONTH> (completed + booked shifts, before tax, plus after-tax line); received/not-yet-paid removed from Earnings (per-shift Payments panel unchanged). Free still current week only.
 
 - Owner free Pro: POST /api/admin/members/{uid}/free-pro {days 1–3650 | revoke} (bonus_pro_until, stacks, logged). UI in Members & referrals (admin-free-pro-30/91/182/365, admin-free-pro-remove).
+
+- Fresh shift form fix (remount per params + nonce n from all callers), Clear / Undo changes button on shift form, header refresh button on Home/Shifts/Earnings. Verified by testing agent iterations 11–12; refresh toast confirmed on all tabs (earlier report was a hidden-tab duplicate testID artefact).

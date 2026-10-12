@@ -6,7 +6,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useAuth } from "@/src/auth";
 import { ProvisionalBanner } from "@/src/components/provisional-banner";
-import { SyncBadge } from "@/src/components/sync-badge";
+import { HeaderActions } from "@/src/components/sync-badge";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { tap } from "@/src/components/ui";
 import { firstName, greeting, money } from "@/src/format";
@@ -78,7 +78,7 @@ export default function Home() {
       <TabHeader
         subtitle={greeting()}
         title={firstName(user?.full_name) || "there"}
-        right={<SyncBadge />}
+        right={<HeaderActions />}
       />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: bottom }]}
@@ -146,7 +146,7 @@ export default function Home() {
             <>
               <Text style={styles.heroTitle}>No upcoming shifts</Text>
               <Text style={styles.heroBody}>Your next booked shift will appear here.</Text>
-              <Pressable testID="home-hero-add-shift-button" onPress={() => router.push("/shift-form")} style={styles.heroBtn}>
+              <Pressable testID="home-hero-add-shift-button" onPress={() => router.push({ pathname: "/shift-form", params: { n: String(Date.now()) } })} style={styles.heroBtn}>
                 <Ionicons name="add" size={18} color={colors.hero} />
                 <Text style={styles.heroBtnText}>Add a shift</Text>
               </Pressable>
@@ -155,7 +155,7 @@ export default function Home() {
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(120).duration(450)} style={styles.qaRow}>
-          <QuickAction testID="home-quick-add-shift" icon="add-circle-outline" label="Add Shift" onPress={() => router.push("/shift-form")} />
+          <QuickAction testID="home-quick-add-shift" icon="add-circle-outline" label="Add Shift" onPress={() => router.push({ pathname: "/shift-form", params: { n: String(Date.now()) } })} />
           <QuickAction testID="home-quick-calendar" icon="calendar-outline" label="Calendar" onPress={() => router.push("/(tabs)/shifts")} />
           <QuickAction testID="home-quick-messages" icon="chatbubbles-outline" label="Messages" onPress={() => router.push("/messages")} />
         </Animated.View>

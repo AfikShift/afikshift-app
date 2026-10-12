@@ -59,7 +59,7 @@ export function ShiftActionsSheet({ shift, onClose }: { shift: LocalShift | null
   };
   const go = (params: Record<string, string>) => {
     close();
-    router.push({ pathname: "/shift-form", params });
+    router.push({ pathname: "/shift-form", params: { ...params, n: String(Date.now()) } });
   };
 
   return (

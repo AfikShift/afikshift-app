@@ -127,3 +127,6 @@
 
 ## Phase D — main agent
 - New: referral-totals / referral-month-* / referral-all-* / referral-rewards-left; admin Held filter (admin-filter-held), admin-warning-<id>; profile-tax-input; payments-after-tax; earnings-after-tax. Backend tests/test_phase_d.py (5). Running pytest while logged in on web sets sync_device on main user → unset before pytest.
+
+## Shift form fresh-open fix + refresh/clear
+- shift-form remounts per params (+ n nonce from all callers); header Clear (add/duplicate → blank) / Undo changes (edit). HeaderActions refresh button (header-refresh-button) on Home/Shifts/Earnings.

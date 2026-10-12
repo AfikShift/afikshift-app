@@ -9,7 +9,7 @@ import { ShiftActionsSheet } from "@/src/components/shift-actions-sheet";
 import { ShiftCalendar, weekStart } from "@/src/components/shift-calendar";
 import { ShiftCard } from "@/src/components/shift-card";
 import { ShiftListView } from "@/src/components/shift-list-view";
-import { SyncBadge } from "@/src/components/sync-badge";
+import { HeaderActions } from "@/src/components/sync-badge";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { tap } from "@/src/components/ui";
 import { addDays, formatDateLong, isValidDate, toISODate } from "@/src/shifts/calc";
@@ -73,7 +73,7 @@ export default function Shifts() {
 
   return (
     <View style={styles.root} testID="shifts-screen">
-      <TabHeader title="My Shifts" right={<SyncBadge />} />
+      <TabHeader title="My Shifts" right={<HeaderActions />} />
       {mode === "list" ? (
         <ShiftListView
           shifts={shifts}
@@ -114,7 +114,7 @@ export default function Shifts() {
             ))}
           </View>
         ) : (
-          <Pressable testID="shifts-empty-add" onPress={() => router.push({ pathname: "/shift-form", params: { date: selected } })} style={styles.empty}>
+          <Pressable testID="shifts-empty-add" onPress={() => router.push({ pathname: "/shift-form", params: { date: selected, n: String(Date.now()) } })} style={styles.empty}>
             <Ionicons name="add-circle-outline" size={22} color={colors.brandSecondary} />
             <Text style={styles.emptyText}>No shifts {mode === "week" ? "this week" : "on this day"} — tap to add one</Text>
           </Pressable>
@@ -127,7 +127,7 @@ export default function Shifts() {
         accessibilityLabel="Add shift"
         onPress={() => {
           tap();
-          router.push({ pathname: "/shift-form", params: { date: selected } });
+          router.push({ pathname: "/shift-form", params: { date: selected, n: String(Date.now()) } });
         }}
         style={({ pressed }) => [styles.fab, { bottom: fabBottom }, pressed && { transform: [{ scale: 0.95 }] }]}
       >

@@ -7,7 +7,7 @@ import { ExportSheet } from "@/src/components/export-sheet";
 import { ProvisionalBanner } from "@/src/components/provisional-banner";
 import { Segmented } from "@/src/components/segmented";
 import { dutyColors } from "@/src/components/shift-card";
-import { SyncBadge } from "@/src/components/sync-badge";
+import { HeaderActions } from "@/src/components/sync-badge";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { Button } from "@/src/components/ui";
 import { ProPrompt } from "@/src/components/pro-prompt";
@@ -50,7 +50,7 @@ export default function Earnings() {
 
   return (
     <View style={styles.root} testID="earnings-screen">
-      <TabHeader title="Earnings" right={<SyncBadge />} />
+      <TabHeader title="Earnings" right={<HeaderActions />} />
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: bottom }]}
         refreshControl={
