@@ -93,6 +93,6 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Tests: 160/160 backend serial (145 + 15 tests/test_phase_ab.py); frontend iterations 8–9 pass.
 
 ## Corrective update — Specialist presets (A+B correction, preview only)
-- Bed Watch / Constant Watch restored as optional built-in presets (ids bed_watch / constant_watch, colours and calculations unchanged). Hidden by default; toggle in Account → Shift templates (`users.specialist_presets`, synced via /api/me, in data download). Not counted as custom templates; shifts still count towards Free 3-active limit. Existing records always selectable/editable even when off.
+- Bed Watch / Constant Watch / PP (user-approved) restored as optional built-in presets (ids bed_watch / constant_watch / pp; shift-type chips wrap, colours and calculations unchanged). Hidden by default; toggle in Account → Shift templates (`users.specialist_presets`, synced via /api/me, in data download). Not counted as custom templates; shifts still count towards Free 3-active limit. Existing records always selectable/editable even when off.
 - PP (Payment Plus) = original name of shift/payments section; all payment features retained; not a duty type.
 - Tests: 167/167 backend serial (160 + 7 tests/test_specialist_presets.py). Targeted UI check pass.

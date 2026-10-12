@@ -117,7 +117,7 @@ export default function Templates() {
         >
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>Specialist presets</Text>
-            <Text style={styles.sub}>Adds Bed Watch and Constant Watch to the shift type list. Optional and included on every plan. Turning this off never changes existing shifts.</Text>
+            <Text style={styles.sub}>Adds Bed Watch, Constant Watch and PP to the shift type list. Optional and included on every plan. Turning this off never changes existing shifts.</Text>
           </View>
           <Switch value={presetsOn} onValueChange={togglePresets} disabled={busy} trackColor={{ true: colors.brandSecondary, false: colors.border }} />
         </Pressable>

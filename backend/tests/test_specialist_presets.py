@@ -11,7 +11,7 @@ from test_m3b_safeguards import _drop_user, _make_user, _sync
 from test_m4_billing import google, verify
 from test_payments_m3a import _change, _payment, _shift, _uid
 
-PRESETS = ("bed_watch", "constant_watch")
+PRESETS = ("bed_watch", "constant_watch", "pp")
 
 
 def _future(days):

@@ -592,7 +592,7 @@ class DecisionIn(BaseModel):
 
 class ShiftData(BaseModel):
     officer_name: str = Field(min_length=1, max_length=80)
-    # Built-in (standard/overtime/extra/other), legacy (bed_watch/constant_watch) or a custom template id.
+    # Built-in (standard/overtime/extra/other), specialist presets (bed_watch/constant_watch/pp) or a custom template id.
     duty_type: str = Field(pattern=r"^[a-z0-9_]{1,40}$")
     shift_period: Literal["day", "night"]
     date: str = Field(pattern=DATE_RE)

@@ -1,5 +1,5 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { Pressable, ScrollView, Text } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { tap } from "@/src/components/ui";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
@@ -11,18 +11,19 @@ export function Segmented<T extends string>({
   onChange,
   testPrefix,
   icons,
+  wrap,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
   testPrefix: string;
   icons?: Partial<Record<T, React.ComponentProps<typeof Ionicons>["name"]>>;
+  /** Wrap chips onto several lines so every option is visible (no sideways scrolling). */
+  wrap?: boolean;
 }) {
   const styles = useStyles();
   const { colors } = useTheme();
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row} keyboardShouldPersistTaps="handled">
-      {options.map((o) => {
+  const chips = options.map((o) => {
         const on = o.value === value;
         return (
           <Pressable
@@ -39,13 +40,18 @@ export function Segmented<T extends string>({
             <Text style={[styles.text, on && { color: colors.onBrandPrimary }]}>{o.label}</Text>
           </Pressable>
         );
-      })}
+      });
+  if (wrap) return <View style={[styles.row, styles.wrap]}>{chips}</View>;
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row} keyboardShouldPersistTaps="handled">
+      {chips}
     </ScrollView>
   );
 }
 
 const useStyles = makeStyles((c) => ({
   row: { gap: spacing.sm, alignItems: "center", minHeight: 40 },
+  wrap: { flexDirection: "row", flexWrap: "wrap" },
   chip: {
     height: 36,
     flexShrink: 0,

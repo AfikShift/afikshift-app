@@ -145,6 +145,7 @@ export default function ShiftForm() {
         <SectionTitle>Shift type</SectionTitle>
         <Segmented<DutyType>
           testPrefix="shift-duty"
+          wrap
           value={f.duty_type}
           onChange={(v) => {
             set("duty_type", v);

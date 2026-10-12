@@ -128,6 +128,7 @@ export const BUILTIN_TYPES: { id: string; label: string }[] = [
 export const SPECIALIST_TYPES: { id: string; label: string }[] = [
   { id: "bed_watch", label: "Bed Watch" },
   { id: "constant_watch", label: "Constant Watch" },
+  { id: "pp", label: "PP" },
 ];
 const LEGACY_LABEL: Record<string, string> = Object.fromEntries(SPECIALIST_TYPES.map((t) => [t.id, t.label]));
 let customTemplates: ShiftTemplate[] = [];
