@@ -8,6 +8,7 @@ import { Segmented } from "@/src/components/segmented";
 import { ShiftActionsSheet } from "@/src/components/shift-actions-sheet";
 import { ShiftCalendar, weekStart } from "@/src/components/shift-calendar";
 import { ShiftCard } from "@/src/components/shift-card";
+import { ShiftListView } from "@/src/components/shift-list-view";
 import { SyncBadge } from "@/src/components/sync-badge";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { tap } from "@/src/components/ui";
@@ -27,7 +28,7 @@ export default function Shifts() {
   const insets = useSafeAreaInsets();
   const bottom = useTabBottomPadding();
   const fabBottom = (usesNativeTabs ? insets.bottom : 0) + spacing.lg;
-  const [mode, setMode] = useState<"month" | "week">("month");
+  const [mode, setMode] = useState<"month" | "week" | "list">("month");
   const [selected, setSelected] = useState(toISODate(new Date()));
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,33 +53,43 @@ export default function Shifts() {
     return byDate[selected] ?? [];
   }, [mode, selected, shifts, byDate]);
   const monthCount = shifts.filter((s) => s.date.slice(0, 7) === selected.slice(0, 7) && s.status !== "cancelled").length;
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await syncNow();
+    setRefreshing(false);
+  };
+  const modeSwitch = (
+    <Segmented<"month" | "week" | "list">
+      testPrefix="shifts-view"
+      value={mode}
+      onChange={setMode}
+      options={[
+        { value: "month", label: "Month" },
+        { value: "week", label: "Week" },
+        { value: "list", label: "List" },
+      ]}
+    />
+  );
 
   return (
     <View style={styles.root} testID="shifts-screen">
       <TabHeader title="My PP Shifts" right={<SyncBadge />} />
+      {mode === "list" ? (
+        <ShiftListView
+          shifts={shifts}
+          header={modeSwitch}
+          currency={user?.currency}
+          onPress={setSheetId}
+          bottomPadding={bottom + 72}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+        />
+      ) : (
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: bottom + 72 }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            tintColor={colors.brandSecondary}
-            onRefresh={async () => {
-              setRefreshing(true);
-              await syncNow();
-              setRefreshing(false);
-            }}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.brandSecondary} onRefresh={onRefresh} />}
       >
-        <Segmented<"month" | "week">
-          testPrefix="shifts-view"
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: "month", label: "Month" },
-            { value: "week", label: "Week" },
-          ]}
-        />
+        {modeSwitch}
         <ShiftCalendar mode={mode} selected={selected} onSelect={setSelected} byDate={byDate} />
         <View style={styles.legend}>
           <Legend color={colors.dutyBed} label="Bed Watch" />
@@ -109,6 +120,7 @@ export default function Shifts() {
           </Pressable>
         )}
       </ScrollView>
+      )}
 
       <Pressable
         testID="shifts-add-fab"

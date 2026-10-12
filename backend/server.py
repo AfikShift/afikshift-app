@@ -451,6 +451,31 @@ def shift_minutes(start: str, end: str) -> int:
     return e - s if e > s else e + 1440 - s  # crosses midnight when finish <= start
 
 
+def check_sensitive(v: str, what: str = "text"):
+    if PRISONER_NO_RE.search(v) or SENSITIVE_WORDS_RE.search(v):
+        raise ValueError("Do not enter prisoner details, cell/wing numbers or operational records")
+
+
+class PaymentIn(BaseModel):
+    """A payment received for one shift. Immutable once created: an edit = tombstone old + add new,
+    so concurrent changes on different devices can always be merged by id without losing records."""
+    id: str = Field(pattern=UUID_RE)
+    amount: float = Field(gt=0, le=10000)
+    date: str = Field(pattern=DATE_RE)
+    note: str = Field(default="", max_length=40)
+    deleted: bool = False
+
+    @model_validator(mode="after")
+    def _check(self):
+        d = datetime.strptime(self.date, "%Y-%m-%d").date()
+        if d > (now() + timedelta(days=1)).date():
+            raise ValueError("Payment date cannot be in the future")
+        check_sensitive(self.note)
+        self.amount = round(self.amount, 2)
+        self.note = self.note.strip()
+        return self
+
+
 class ShiftData(BaseModel):
     officer_name: str = Field(min_length=1, max_length=80)
     duty_type: Literal["bed_watch", "constant_watch", "other"]
@@ -461,8 +486,9 @@ class ShiftData(BaseModel):
     break_minutes: int = Field(ge=0, le=720)
     location: str = Field(default="", max_length=60)
     status: Literal["booked", "completed", "cancelled"] = "booked"
-    payment_status: Literal["pending", "partially_paid", "paid"] = "pending"
     hourly_rate: Optional[float] = Field(default=None, ge=0, le=500)
+    payments: List[PaymentIn] = Field(default_factory=list, max_length=200)
+    # payment_status is always derived from payments; any client value is ignored.
 
     @model_validator(mode="after")
     def _check(self):
@@ -472,8 +498,9 @@ class ShiftData(BaseModel):
         if self.break_minutes >= shift_minutes(self.start_time, self.end_time):
             raise ValueError("Unpaid break must be shorter than the shift")
         for v in (self.location, self.officer_name):
-            if PRISONER_NO_RE.search(v) or SENSITIVE_WORDS_RE.search(v):
-                raise ValueError("Do not enter prisoner details, cell/wing numbers or operational records")
+            check_sensitive(v)
+        if self.status == "cancelled" and any(not p.deleted for p in self.payments):
+            raise ValueError("Remove recorded payments before cancelling this shift")
         self.location = self.location.strip()
         return self
 
@@ -497,14 +524,43 @@ class SyncIn(BaseModel):
     since: Optional[datetime] = None
 
 
-def computed(d: ShiftData) -> dict:
-    hours = round((shift_minutes(d.start_time, d.end_time) - d.break_minutes) / 60, 2)
-    rate = d.hourly_rate
-    return {"payable_hours": hours, "estimated_earnings": round(hours * rate, 2) if rate is not None else None}
+def merge_payments(server: list, incoming: list) -> list:
+    """Union by payment id. Deletion is sticky (tombstone wins), so no device can resurrect or drop
+    another device's payment."""
+    out = {p["id"]: dict(p) for p in server}
+    for p in incoming:
+        if p["id"] in out:
+            out[p["id"]]["deleted"] = out[p["id"]].get("deleted", False) or p.get("deleted", False)
+        else:
+            out[p["id"]] = dict(p)
+    return sorted(out.values(), key=lambda p: (p["date"], p["id"]))
+
+
+def payment_fields(estimated: Optional[float], payments: list) -> dict:
+    pence = sum(round(p["amount"] * 100) for p in payments if not p.get("deleted"))
+    received = pence / 100
+    outstanding = None if estimated is None else (round(estimated * 100) - pence) / 100
+    if pence == 0:
+        status = "pending"
+    elif estimated is not None and pence >= round(estimated * 100):
+        status = "paid"
+    else:
+        status = "partially_paid"
+    return {"amount_received": received, "outstanding": outstanding, "payment_status": status}
+
+
+def computed(d: dict) -> dict:
+    hours = round((shift_minutes(d["start_time"], d["end_time"]) - d["break_minutes"]) / 60, 2)
+    rate = d.get("hourly_rate")
+    est = round(hours * rate, 2) if rate is not None else None
+    return {"payable_hours": hours, "estimated_earnings": est, **payment_fields(est, d.get("payments", []))}
 
 
 def shift_out(doc: dict) -> dict:
     out = {k: v for k, v in doc.items() if k not in ("_id", "user_id", "last_change_id")}
+    out.setdefault("payments", [])
+    # Always derive payment status from recorded payments (legacy manual statuses become Pending).
+    out.update(payment_fields(out.get("estimated_earnings"), out["payments"]))
     for k in ("created_at", "updated_at"):
         if isinstance(out.get(k), datetime):
             out[k] = out[k].isoformat()
@@ -517,9 +573,12 @@ async def apply_change(uid: str, ch: ShiftChange) -> dict:
         return {"id": ch.id, "status": "rejected", "server": None}
     if cur and cur.get("last_change_id") == ch.change_id:
         return {"id": ch.id, "status": "duplicate", "server": shift_out(cur)}  # retry of an applied change
+    incoming = ch.data.model_dump() if ch.data else None
     fields = {"deleted": ch.deleted, "last_change_id": ch.change_id, "updated_at": now()}
-    if ch.data:
-        fields.update(ch.data.model_dump(), **computed(ch.data))
+    if incoming:
+        if cur:
+            incoming["payments"] = merge_payments(cur.get("payments", []), incoming["payments"])
+        fields.update(incoming, **computed(incoming))
     if not cur:
         if ch.base_version != 0:
             return {"id": ch.id, "status": "conflict", "server": None}  # edited a record the server no longer has
@@ -530,13 +589,21 @@ async def apply_change(uid: str, ch: ShiftChange) -> dict:
             return await apply_change(uid, ch)
         return {"id": ch.id, "status": "applied", "server": shift_out(doc)}
     if ch.base_version != cur["version"]:
+        # Shift details conflict and need the officer's choice, but payments are merged immediately
+        # so nothing recorded on either device is lost.
+        if incoming and not cur.get("deleted") and incoming["payments"] != cur.get("payments", []):
+            merged = {**cur, "payments": incoming["payments"]}
+            upd = {"payments": incoming["payments"], **computed(merged), "updated_at": now()}
+            res = await db.pp_shifts.find_one_and_update(
+                {"id": ch.id, "user_id": uid, "version": cur["version"]},
+                {"$set": upd, "$inc": {"version": 1}}, projection={"_id": 0}, return_document=True)
+            cur = res or await db.pp_shifts.find_one({"id": ch.id}, {"_id": 0})
         return {"id": ch.id, "status": "conflict", "server": shift_out(cur)}
     res = await db.pp_shifts.find_one_and_update(
         {"id": ch.id, "user_id": uid, "version": cur["version"]},
         {"$set": fields, "$inc": {"version": 1}}, projection={"_id": 0}, return_document=True)
     if not res:
-        fresh = await db.pp_shifts.find_one({"id": ch.id}, {"_id": 0})
-        return {"id": ch.id, "status": "conflict", "server": shift_out(fresh) if fresh else None}
+        return await apply_change(uid, ch)  # lost a race; re-evaluate against the latest version
     return {"id": ch.id, "status": "applied", "server": shift_out(res)}
 
 

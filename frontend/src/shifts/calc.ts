@@ -4,6 +4,9 @@ export type ShiftPeriod = "day" | "night";
 export type ShiftStatus = "booked" | "completed" | "cancelled";
 export type PaymentStatus = "pending" | "partially_paid" | "paid";
 
+/** A payment received for a shift. Immutable once created; edit = tombstone old + add new. */
+export type Payment = { id: string; amount: number; date: string; note: string; deleted: boolean };
+
 export type ShiftData = {
   officer_name: string;
   duty_type: DutyType;
@@ -14,9 +17,43 @@ export type ShiftData = {
   break_minutes: number;
   location: string;
   status: ShiftStatus;
-  payment_status: PaymentStatus;
   hourly_rate: number | null;
+  payments: Payment[];
 };
+
+/** Union by id; a deletion on any device wins (sticky tombstone). Mirrors the server merge. */
+export function mergePayments(a: Payment[] = [], b: Payment[] = []): Payment[] {
+  const m = new Map<string, Payment>();
+  for (const p of a) m.set(p.id, { ...p });
+  for (const p of b) {
+    const cur = m.get(p.id);
+    if (cur) cur.deleted = cur.deleted || p.deleted;
+    else m.set(p.id, { ...p });
+  }
+  return [...m.values()].sort((x, y) => (x.date === y.date ? x.id.localeCompare(y.id) : x.date.localeCompare(y.date)));
+}
+
+/** Received / outstanding / status, always derived from recorded payments (pence arithmetic). */
+export function paymentSummary(estimated: number | null, payments: Payment[] = []) {
+  const pence = payments.filter((p) => !p.deleted).reduce((a, p) => a + Math.round(p.amount * 100), 0);
+  const estP = estimated == null ? null : Math.round(estimated * 100);
+  const status: PaymentStatus = pence === 0 ? "pending" : estP != null && pence >= estP ? "paid" : "partially_paid";
+  return { amount_received: pence / 100, outstanding: estP == null ? null : (estP - pence) / 100, payment_status: status };
+}
+
+export function validatePayment(amount: number, date: string, note: string): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (!isFinite(amount) || amount <= 0 || amount > 10000) e.amount = "Enter an amount between £0.01 and £10,000.";
+  if (!isValidDate(date)) e.date = "Enter a valid date (YYYY-MM-DD).";
+  else if (date > addDays(toISODate(new Date()), 1)) e.date = "Payment date can't be in the future.";
+  if (note.length > 40) e.note = "Keep the note under 40 characters.";
+  if (isSensitive(note)) e.note = "Don't enter prisoner details or operational information.";
+  return e;
+}
+
+export function isSensitive(v: string) {
+  return PRISONER_NO_RE.test(v) || SENSITIVE_WORDS_RE.test(v);
+}
 
 export const DUTY_LABEL: Record<DutyType, string> = {
   bed_watch: "Bed Watch",
@@ -74,6 +111,7 @@ export function validateShift(s: ShiftData): Record<string, string> {
   if (s.location.length > 60) e.location = "Keep the location under 60 characters.";
   if (PRISONER_NO_RE.test(s.location) || SENSITIVE_WORDS_RE.test(s.location))
     e.location = "Don't enter prisoner details, cell/wing numbers or operational records.";
+  if (s.status === "cancelled" && s.payments.some((p) => !p.deleted)) e.status = "Remove recorded payments before cancelling this shift.";
   if (!s.officer_name.trim()) e.officer_name = "Officer name is required.";
   else if (PRISONER_NO_RE.test(s.officer_name) || SENSITIVE_WORDS_RE.test(s.officer_name))
     e.officer_name = "Enter your own name only — no prisoner details.";

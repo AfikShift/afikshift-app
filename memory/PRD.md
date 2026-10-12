@@ -42,6 +42,13 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - CORS restricted via CORS_ORIGINS env (native apps unaffected — no Origin header)
 - Prisoner/operational data guard: prisoner numbers, prisoner/inmate/NOMIS/PNC, cell/wing numbers blocked (client + server)
 
+### M3a — Payments per shift, Upcoming/History, sync testing (2026-10-12) ✅ tested (84/84 backend; UI E2E offline + both conflict options pass)
+- Payments embedded in shift (immutable, id-merged union, sticky tombstones); edit = tombstone + new; server merges payments even on conflict
+- Payment status always derived (pending/partially_paid/paid), pence arithmetic, overpaid shown; manual status chips removed; legacy statuses → pending
+- Payment note ≤40 chars with sensitive-data blocking (client + server); PrivacyNotice on shift form + payment form
+- Shifts tab "List" view: Upcoming (soonest first) / History (newest first) + All/Completed/Cancelled/Unpaid chips + summary (FlatList)
+- Cancel blocked while active payments exist
+
 ## Pre-launch checklist
 - Rotate JWT_SECRET and email key; keep DEV_LOG_CODES=false; set CORS_ORIGINS for production web origin (if any)
 - Real-device tests: biometrics, date/time pickers, airplane-mode offline sync

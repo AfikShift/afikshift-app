@@ -5,7 +5,7 @@ import { AppState, Platform } from "react-native";
 
 import { ApiError, request } from "@/src/api";
 import { useAuth } from "@/src/auth";
-import { ShiftData, estimatedEarnings, interval, payableHours } from "@/src/shifts/calc";
+import { Payment, PaymentStatus, ShiftData, estimatedEarnings, interval, mergePayments, payableHours, paymentSummary } from "@/src/shifts/calc";
 import { loadEncrypted, saveEncrypted, shiftsKey } from "@/src/shifts/local-store";
 
 export type ServerShift = ShiftData & {
@@ -14,6 +14,9 @@ export type ServerShift = ShiftData & {
   deleted: boolean;
   payable_hours: number;
   estimated_earnings: number | null;
+  amount_received: number;
+  outstanding: number | null;
+  payment_status: PaymentStatus;
   created_at: string;
   updated_at: string;
 };
@@ -42,6 +45,9 @@ type Ctx = {
   update: (id: string, patch: Partial<ShiftData>) => Promise<void>;
   remove: (id: string) => Promise<void>;
   resolveConflict: (id: string, keep: "mine" | "server") => Promise<void>;
+  /** Record a payment; pass `replaces` to edit (old one is tombstoned, a new one added). */
+  addPayment: (id: string, p: { amount: number; date: string; note: string; replaces?: string }) => Promise<void>;
+  removePayment: (id: string, paymentId: string) => Promise<void>;
 };
 
 const ShiftsContext = createContext<Ctx | null>(null);
@@ -49,12 +55,19 @@ const EMPTY: Persisted = { shifts: {}, since: null };
 
 function withComputed(d: ShiftData) {
   const h = payableHours(d.start_time, d.end_time, d.break_minutes);
-  return { payable_hours: h, estimated_earnings: estimatedEarnings(h, d.hourly_rate) };
+  const est = estimatedEarnings(h, d.hourly_rate);
+  return { payable_hours: h, estimated_earnings: est, ...paymentSummary(est, d.payments) };
 }
 
 function pickData(s: LocalShift): ShiftData {
-  const { officer_name, duty_type, shift_period, date, start_time, end_time, break_minutes, location, status, payment_status, hourly_rate } = s;
-  return { officer_name, duty_type, shift_period, date, start_time, end_time, break_minutes, location, status, payment_status, hourly_rate };
+  const { officer_name, duty_type, shift_period, date, start_time, end_time, break_minutes, location, status, hourly_rate } = s;
+  return { officer_name, duty_type, shift_period, date, start_time, end_time, break_minutes, location, status, hourly_rate, payments: s.payments ?? [] };
+}
+
+/** Normalise a server copy (older records may lack payments). */
+function fromServer(s: ServerShift): LocalShift {
+  const payments = s.payments ?? [];
+  return { ...s, payments, ...paymentSummary(s.estimated_earnings, payments), _sync: "synced" };
 }
 
 export function ShiftsProvider({ children }: { children: React.ReactNode }) {
@@ -140,10 +153,16 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
               if (!r.server) continue;
               if (local._change_id === sent.get(r.id)) {
                 if (r.server.deleted) delete shifts[r.id];
-                else shifts[r.id] = { ...r.server, _sync: "synced" };
-              } else shifts[r.id] = { ...local, version: r.server.version }; // edited again meanwhile
+                else shifts[r.id] = fromServer(r.server);
+              } else {
+                // Edited again meanwhile: keep local edits, pick up payments from other devices.
+                const data = { ...pickData(local), payments: mergePayments(local.payments, r.server.payments) };
+                shifts[r.id] = { ...local, ...data, ...withComputed(data), version: r.server.version };
+              }
             } else if (r.status === "conflict") {
-              shifts[r.id] = { ...local, _sync: "conflict", _server: r.server };
+              // Payments are merged automatically; only shift details await the officer's choice.
+              const data = { ...pickData(local), payments: mergePayments(local.payments, r.server?.payments) };
+              shifts[r.id] = { ...local, ...data, ...withComputed(data), _sync: "conflict", _server: r.server };
             } else if (r.status === "rejected") {
               delete shifts[r.id];
             }
@@ -152,7 +171,7 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
             const local = shifts[s.id];
             if (local && local._sync !== "synced") continue; // never overwrite unsynced local edits
             if (s.deleted) delete shifts[s.id];
-            else shifts[s.id] = { ...s, _sync: "synced" };
+            else shifts[s.id] = fromServer(s);
           }
           return { shifts, since: res.server_time };
         });
@@ -278,15 +297,43 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
           const shifts = { ...prev.shifts };
           const server = local._server;
           if (keep === "server") {
-            if (server && !server.deleted) shifts[id] = { ...server, _sync: "synced" };
-            else delete shifts[id];
+            if (server && !server.deleted) {
+              // Use the server's shift details, but keep every payment from both devices.
+              const payments = mergePayments(server.payments, local.payments);
+              const extra = JSON.stringify(payments) !== JSON.stringify(mergePayments(server.payments, []));
+              const base = fromServer(server);
+              shifts[id] = extra
+                ? { ...base, payments, ...withComputed({ ...pickData(base), payments }), _sync: "pending", _change_id: Crypto.randomUUID() }
+                : base;
+            } else delete shifts[id];
           } else {
             // Keep my version: re-base on the server's latest version so the next push applies it.
-            shifts[id] = { ...local, version: server?.version ?? 0, _sync: "pending", _server: undefined, _change_id: Crypto.randomUUID() };
+            const data = { ...pickData(local), payments: mergePayments(local.payments, server?.payments) };
+            shifts[id] = { ...local, ...data, ...withComputed(data), version: server?.version ?? 0, _sync: "pending", _server: undefined, _change_id: Crypto.randomUUID() };
           }
           return { ...prev, shifts };
         });
         scheduleSync();
+      },
+      addPayment: async (id, p) => {
+        await write(id, (prev) => {
+          if (!prev) throw new Error("Shift not found");
+          const removeIds = new Set(p.replaces ? [p.replaces] : []);
+          const payments: Payment[] = [
+            ...(prev.payments ?? []).map((x) => (removeIds.has(x.id) ? { ...x, deleted: true } : x)),
+            { id: Crypto.randomUUID(), amount: Math.round(p.amount * 100) / 100, date: p.date, note: p.note.trim(), deleted: false },
+          ];
+          const data = { ...pickData(prev), payments };
+          return { ...prev, ...data, ...withComputed(data), _sync: prev._sync === "conflict" ? "conflict" : "pending", _change_id: Crypto.randomUUID() };
+        });
+      },
+      removePayment: async (id, paymentId) => {
+        await write(id, (prev) => {
+          if (!prev) throw new Error("Shift not found");
+          const payments = (prev.payments ?? []).map((x) => (x.id === paymentId ? { ...x, deleted: true } : x));
+          const data = { ...pickData(prev), payments };
+          return { ...prev, ...data, ...withComputed(data), _sync: prev._sync === "conflict" ? "conflict" : "pending", _change_id: Crypto.randomUUID() };
+        });
       },
     };
   }, [db, ready, syncing, failed, online, lastSyncedAt, syncNow, write, commit, scheduleSync]);

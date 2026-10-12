@@ -1,15 +1,16 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/auth";
-import { Segmented } from "@/src/components/segmented";
+import { PaymentsPanel } from "@/src/components/payments-panel";
 import { ShiftCard } from "@/src/components/shift-card";
 import { useToast } from "@/src/components/toast";
 import { Button, tap } from "@/src/components/ui";
-import { DUTY_LABEL, PaymentStatus, STATUS_LABEL, formatDateLong } from "@/src/shifts/calc";
+import { DUTY_LABEL, STATUS_LABEL, formatDateLong } from "@/src/shifts/calc";
 import { LocalShift, ServerShift, useShifts } from "@/src/shifts/provider";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
@@ -67,7 +68,7 @@ export function ShiftActionsSheet({ shift, onClose }: { shift: LocalShift | null
         <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]} onPress={() => {}} testID="shift-actions-sheet">
           <View style={styles.grabber} />
           {shift && (
-            <ScrollView contentContainerStyle={{ gap: spacing.md }}>
+            <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.md }}>
               <ShiftCard shift={shift} currency={user?.currency} />
 
               {shift._sync === "conflict" && (
@@ -87,21 +88,7 @@ export function ShiftActionsSheet({ shift, onClose }: { shift: LocalShift | null
                 </View>
               )}
 
-              {shift.status === "completed" && (
-                <View style={{ gap: spacing.sm }}>
-                  <Text style={styles.label}>Payment status</Text>
-                  <Segmented<PaymentStatus>
-                    testPrefix="sheet-payment"
-                    value={shift.payment_status}
-                    onChange={(v) => update(shift.id, { payment_status: v }).then(() => toast("Payment status updated"))}
-                    options={[
-                      { value: "pending", label: "Pending" },
-                      { value: "partially_paid", label: "Partially paid" },
-                      { value: "paid", label: "Paid" },
-                    ]}
-                  />
-                </View>
-              )}
+              <PaymentsPanel shift={shift} />
 
               {!confirmDelete ? (
                 <View style={styles.actions}>
@@ -111,7 +98,16 @@ export function ShiftActionsSheet({ shift, onClose }: { shift: LocalShift | null
                   <Action testID="shift-action-edit" icon="create-outline" label="Edit" onPress={() => go({ id: shift.id })} />
                   <Action testID="shift-action-duplicate" icon="copy-outline" label="Duplicate" onPress={() => go({ duplicate: shift.id })} />
                   {shift.status !== "cancelled" ? (
-                    <Action testID="shift-action-cancel" icon="close-circle-outline" label="Cancel shift" onPress={() => run(() => update(shift.id, { status: "cancelled" }), "Shift cancelled")} />
+                    <Action
+                      testID="shift-action-cancel"
+                      icon="close-circle-outline"
+                      label="Cancel shift"
+                      onPress={() =>
+                        (shift.payments ?? []).some((p) => !p.deleted)
+                          ? toast("Remove recorded payments before cancelling this shift", "error")
+                          : run(() => update(shift.id, { status: "cancelled" }), "Shift cancelled")
+                      }
+                    />
                   ) : (
                     <Action testID="shift-action-restore" icon="refresh-outline" label="Restore as booked" onPress={() => run(() => update(shift.id, { status: "booked" }), "Shift restored")} />
                   )}
@@ -124,7 +120,7 @@ export function ShiftActionsSheet({ shift, onClose }: { shift: LocalShift | null
                   <Button testID="shift-delete-cancel-button" label="Keep it" variant="ghost" onPress={() => setConfirmDelete(false)} />
                 </View>
               )}
-            </ScrollView>
+            </KeyboardAwareScrollView>
           )}
         </Pressable>
       </Pressable>

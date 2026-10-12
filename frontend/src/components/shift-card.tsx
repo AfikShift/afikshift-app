@@ -61,7 +61,15 @@ export function ShiftCard({ shift, currency, onPress, showDate = true }: { shift
             </View>
           )}
         </View>
-        {shift.estimated_earnings != null && <Text style={styles.money}>Est. {money(shift.estimated_earnings, currency)}</Text>}
+        {shift.status === "completed" && shift.outstanding != null && (
+          <Text style={styles.money}>
+            Est. {money(shift.estimated_earnings ?? 0, currency)} · Received {money(shift.amount_received ?? 0, currency)} ·{" "}
+            {shift.outstanding < 0 ? `Overpaid ${money(-shift.outstanding, currency)}` : `Outstanding ${money(shift.outstanding, currency)}`}
+          </Text>
+        )}
+        {!(shift.status === "completed" && shift.outstanding != null) && shift.estimated_earnings != null && (
+          <Text style={styles.money}>Est. {money(shift.estimated_earnings, currency)}</Text>
+        )}
       </View>
     </Pressable>
   );

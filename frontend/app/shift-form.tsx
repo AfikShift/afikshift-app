@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/auth";
 import { PickerField } from "@/src/components/picker-field";
+import { PrivacyNotice } from "@/src/components/privacy-notice";
 import { Segmented } from "@/src/components/segmented";
 import { StackHeader } from "@/src/components/stack-header";
 import { useToast } from "@/src/components/toast";
@@ -15,7 +16,6 @@ import { currencySymbol, money } from "@/src/format";
 import {
   DUTY_LABEL,
   DutyType,
-  PaymentStatus,
   ShiftData,
   ShiftPeriod,
   ShiftStatus,
@@ -59,11 +59,11 @@ export default function ShiftForm() {
         break_minutes: source.break_minutes,
         location: source.location,
         status: source.status,
-        payment_status: source.payment_status,
         hourly_rate: source.hourly_rate,
+        payments: [],
       };
-      // Duplicate: next day, fresh status, current profile rate.
-      return editing ? base : { ...base, date: addDays(source.date, 1), status: "booked", payment_status: "pending", hourly_rate: user?.hourly_rate ?? null, officer_name: user?.full_name ?? base.officer_name };
+      // Duplicate: next day, fresh status, current profile rate, no payments copied.
+      return editing ? base : { ...base, date: addDays(source.date, 1), status: "booked", hourly_rate: user?.hourly_rate ?? null, officer_name: user?.full_name ?? base.officer_name };
     }
     return {
       officer_name: user?.full_name ?? "",
@@ -75,8 +75,8 @@ export default function ShiftForm() {
       break_minutes: 0,
       location: "",
       status: "booked",
-      payment_status: "pending",
       hourly_rate: user?.hourly_rate ?? null,
+      payments: [],
     };
   });
   const [rateText, setRateText] = useState(f.hourly_rate != null ? String(f.hourly_rate) : "");
@@ -93,14 +93,16 @@ export default function ShiftForm() {
   const clashes = useMemo(() => overlaps({ ...f, id: editing?.id }, shifts), [f, editing?.id, shifts]);
 
   const save = async () => {
-    const data: ShiftData = { ...f, officer_name: f.officer_name.trim(), location: f.location.trim(), hourly_rate: rateNum };
+    const data: ShiftData = { ...f, officer_name: f.officer_name.trim(), location: f.location.trim(), hourly_rate: rateNum, payments: editing?.payments ?? [] };
     const e = validateShift(data);
     if (rateNum != null && (!isFinite(rateNum) || rateNum < 0 || rateNum > 500)) e.hourly_rate = "Enter a rate between 0 and 500.";
     setErrors(e);
     if (Object.keys(e).length) return toast("Please check the highlighted fields", "error");
     setSaving(true);
     try {
-      if (editing) await update(editing.id, data);
+      // Editing never touches payments: the store keeps the latest payment list (incl. other devices').
+      const { payments: _ignored, ...details } = data;
+      if (editing) await update(editing.id, details);
       else await create(data);
       toast(clashes.length ? "Shift saved — note: it overlaps another shift" : "Shift saved", clashes.length ? "info" : "success");
       router.back();
@@ -116,6 +118,7 @@ export default function ShiftForm() {
     <View style={styles.root} testID="shift-form-screen">
       <StackHeader title={title} />
       <KeyboardAwareScrollView bottomOffset={140} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+        <PrivacyNotice />
         <SectionTitle>Duty</SectionTitle>
         <Segmented<DutyType>
           testPrefix="shift-duty"
@@ -233,17 +236,8 @@ export default function ShiftForm() {
             { value: "cancelled", label: "Cancelled" },
           ]}
         />
-        <SectionTitle>Payment</SectionTitle>
-        <Segmented<PaymentStatus>
-          testPrefix="shift-payment"
-          value={f.payment_status}
-          onChange={(v) => set("payment_status", v)}
-          options={[
-            { value: "pending", label: "Pending" },
-            { value: "partially_paid", label: "Partially paid" },
-            { value: "paid", label: "Paid" },
-          ]}
-        />
+        {!!errors.status && <Text style={styles.error}>{errors.status}</Text>}
+        <Text style={styles.payNote}>Payments are recorded from the shift&apos;s menu once it&apos;s completed. Payment status updates automatically.</Text>
         <View style={{ height: 160 }} />
       </KeyboardAwareScrollView>
 
@@ -287,6 +281,7 @@ const useStyles = makeStyles((c) => ({
   info: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   infoText: { fontFamily: fonts.medium, fontSize: type.sm + 1, color: c.onSurfaceSecondary },
   error: { fontFamily: fonts.medium, fontSize: type.sm, color: c.error, marginTop: spacing.sm },
+  payNote: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, marginTop: spacing.md, lineHeight: 18 },
   footer: {
     backgroundColor: c.surface,
     borderTopWidth: 1,
