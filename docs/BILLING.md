@@ -10,10 +10,10 @@ Nothing below has been done yet; each step needs your approval.
 | `dutyconnect_pro_annual` | `annual` (auto-renewing, 1 year) | £34.99 | Yearly | None |
 
 **Founding-member offer** (add to each base plan → *Add offer*): offer ID **`founding`**, eligibility
-**Developer determined**, phase **Discounted recurring payment** – monthly plan: £2.99 for **12** billing periods;
-annual plan: £24.99 for **1** billing period. After that Google automatically charges the standard price and shows the
+**Developer determined**, phase **Discounted recurring payment** – monthly plan: £2.99 for **6** billing periods;
+annual plan: £24.99 for **1** billing period (Google offers annual discounts in whole years, so 6 months is not possible on the annual plan). After that Google automatically charges the standard price and shows the
 required wording at checkout. The server only lets the app request this offer for accounts that have never subscribed,
-while fewer than 200 accounts have used it (`FOUNDING_MEMBER_LIMIT`). ⚠️ Confirm in Play Console that a 12-period
+while fewer than 200 accounts have used it (`FOUNDING_MEMBER_LIMIT`). ⚠️ Confirm in Play Console that a 6-period
 discounted recurring phase is accepted for the monthly plan before launch; if not, use the longest allowed and update
 the in-app wording (it is taken from Google's returned offer, so no code change is needed for prices).
 Recommended settings: grace period **7 days**, account hold **enabled** (up to 30 days), resubscribe **allowed**,

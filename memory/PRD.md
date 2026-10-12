@@ -116,3 +116,5 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Fraud flags on referrals: burst (>5 sign-ups on one code in 24h), similar_email (email_key: +tag, dots, trailing digits stripped), quick_refund (voided). Flagged referrals become status "held" on qualifying (members see "being checked"); admin Held filter with warnings; approve allowed from held. Overview: referrals_held, referrals_flagged.
 - users.tax_rate (0–60, clear_tax_rate): Personal details field; payments panel + Earnings hero show after-tax estimate/outstanding (display only).
 - Tests: tests/test_phase_d.py (5).
+
+- Founding offer changed: monthly £2.99 for first 6 months (was 12); annual £24.99 for first year (Play cannot do 6 months on a yearly plan). Prices unchanged.

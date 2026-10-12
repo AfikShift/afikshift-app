@@ -116,7 +116,7 @@ export default function Upgrade() {
             />
             {prices?.[plan].intro && (
               <Text style={styles.offer} testID="upgrade-founding-offer">
-                Founding member price: {prices[plan].intro} for the first 12 months, then {prices[plan].price} per {plan === "annual" ? "year" : "month"}. Google Play
+                Founding member price: {prices[plan].intro} for the first {plan === "annual" ? "year" : "6 months"}, then {prices[plan].price} per {plan === "annual" ? "year" : "month"}. Google Play
                 will show the exact terms before you confirm.
               </Text>
             )}
