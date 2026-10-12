@@ -10,6 +10,8 @@ import { dutyColors } from "@/src/components/shift-card";
 import { SyncBadge } from "@/src/components/sync-badge";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { Button } from "@/src/components/ui";
+import { ProPrompt } from "@/src/components/pro-prompt";
+import { useEntitlement } from "@/src/billing/entitlement";
 import { money } from "@/src/format";
 import { DUTY_LABEL, formatHours, toISODate } from "@/src/shifts/calc";
 import { useShifts } from "@/src/shifts/provider";
@@ -35,6 +37,7 @@ export default function Earnings() {
   const { user } = useAuth();
   const { shifts, syncNow } = useShifts();
   const cur = user?.currency;
+  const { isPro } = useEntitlement();
   const [kind, setKind] = useState<PeriodKind>("month");
   const [anchor, setAnchor] = useState(toISODate(new Date()));
   const [exporting, setExporting] = useState(false);
@@ -60,6 +63,8 @@ export default function Earnings() {
           />
         }
       >
+        {isPro && (
+        <>
         <Segmented<PeriodKind>
           testPrefix="earnings-period"
           value={kind}
@@ -81,6 +86,13 @@ export default function Earnings() {
             <Ionicons name="chevron-forward" size={20} color={colors.onSurface} />
           </Pressable>
         </View>
+        </>
+        )}
+        {!isPro && (
+          <Text style={styles.navLabel} testID="earnings-period-label">
+            {range.label}
+          </Text>
+        )}
 
         <ProvisionalBanner count={t.provisional} testID="earnings-provisional-banner" />
 
@@ -114,6 +126,7 @@ export default function Earnings() {
           )}
         </View>
 
+        {isPro ? (
         <View style={styles.card} testID="earnings-by-duty">
           <Text style={styles.cardTitle}>By duty type</Text>
           {t.byDuty.map((d) => {
@@ -132,6 +145,9 @@ export default function Earnings() {
             );
           })}
         </View>
+        ) : (
+          <ProPrompt testID="earnings-pro-prompt" title="Unlock the full earnings dashboard" body="Week, month and year views, duty-type breakdowns and PDF reports with Pro." />
+        )}
 
         <Button testID="earnings-export-button" label="Export report" icon="share-outline" onPress={() => setExporting(true)} />
         <Text style={styles.disclaimer}>Estimates only — not official payroll records. Earned figures include completed shifts only; booked shifts are projected.</Text>

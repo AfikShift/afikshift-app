@@ -12,9 +12,29 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/src/auth";
 import { ErrorBoundary } from "@/src/components/error-boundary";
 import { LockScreen } from "@/src/components/lock-screen";
-import { ToastProvider } from "@/src/components/toast";
+import { ToastProvider, useToast } from "@/src/components/toast";
 import { queryClient } from "@/src/query-client";
 import { ShiftsProvider } from "@/src/shifts/provider";
+import { EntitlementProvider, useEntitlement } from "@/src/billing/entitlement";
+import { startBilling } from "@/src/billing/play";
+
+/** Starts the Play Billing listener early so purchases completed while the app was closed are verified. */
+function BillingListener() {
+  const { status } = useAuth();
+  const { apply } = useEntitlement();
+  const toast = useToast();
+  useEffect(() => {
+    if (status === "signedIn")
+      startBilling(
+        (e) => {
+          apply(e);
+          toast(e.plan === "pro" ? "Welcome to DutyConnect Pro" : "Purchase recorded");
+        },
+        (m) => toast(m, "error"),
+      ).catch(() => {});
+  }, [status, apply, toast]);
+  return null;
+}
 import { useTheme } from "@/src/theme";
 
 // Disable logbox errors etc so that users can see the app
@@ -37,6 +57,7 @@ function AppStack() {
         <Stack.Screen name="security" options={{ presentation: "card" }} />
         <Stack.Screen name="shift-form" options={{ presentation: "card" }} />
         <Stack.Screen name="recently-deleted" options={{ presentation: "card" }} />
+        <Stack.Screen name="upgrade" options={{ presentation: "card" }} />
       </Stack>
       {status === "signedIn" && locked && (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
@@ -70,11 +91,14 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <KeyboardProvider>
               <AuthProvider>
+                <EntitlementProvider>
                 <ShiftsProvider>
                   <ToastProvider>
+                    <BillingListener />
                     <AppStack />
                   </ToastProvider>
                 </ShiftsProvider>
+                </EntitlementProvider>
               </AuthProvider>
             </KeyboardProvider>
           </QueryClientProvider>

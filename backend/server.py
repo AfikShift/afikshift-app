@@ -25,6 +25,7 @@ load_dotenv(ROOT_DIR / ".env")
 from email_service import send_verification_code, send_reset_code, send_deletion_code, send_deletion_confirmation  # noqa: E402
 from public_pages import router as public_router  # noqa: E402
 from security import install_security  # noqa: E402
+from billing import make_router as make_billing_router  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("dutyconnect")
@@ -50,7 +51,14 @@ KNOWN_DEV_SECRET_HASHES = {"f6e5a38b840f06c7c7f6e96fecd263e0c50f63e2d6f0c52ea280
 PLAN_FEATURES = {
     "free": {
         "pp_shifts": True, "calendar": True, "earnings": True, "payments": True,
-        "reports_csv": True, "reports_pdf": True, "calendar_reminders": False,
+        "reports_csv": True, "reports_pdf": False, "earnings_dashboard": False, "multi_payments": False,
+        "multi_device": False, "history_days": 30, "calendar_reminders": False,
+        "sms_forwarding": False, "multi_destinations": False, "priority_support": False,
+    },
+    "pro": {
+        "pp_shifts": True, "calendar": True, "earnings": True, "payments": True,
+        "reports_csv": True, "reports_pdf": True, "earnings_dashboard": True, "multi_payments": True,
+        "multi_device": True, "history_days": None, "calendar_reminders": False,
         "sms_forwarding": False, "multi_destinations": False, "priority_support": False,
     },
 }
@@ -445,7 +453,7 @@ async def delete_user_data(user: dict, via: str):
     devices learn to wipe their local copy; they expire with the refresh token. A deletion-log entry
     (keyed hash + date, no email) lets restore_backup re-apply the deletion after a backup restore."""
     uid = user["id"]
-    for coll in ("action_codes", "pp_shifts", "payments"):
+    for coll in ("action_codes", "pp_shifts", "payments", "subscriptions"):
         await db[coll].delete_many({"user_id": uid})
     await db.sessions.update_many({"user_id": uid}, {"$set": {"revoked": True, "account_deleted": True}})
     await db.login_attempts.delete_one({"key": "acct:" + account_hash(user["email"])})
@@ -745,7 +753,15 @@ async def purge_expired_deleted(uid: str):
 
 
 @api.post("/shifts/sync")
-async def sync_shifts(body: SyncIn, user: dict = Depends(current_user)):
+async def sync_shifts(body: SyncIn, request: Request, user: dict = Depends(current_user)):
+    # Free: cloud sync from one phone. Another phone gets 403 (its records stay safely on that
+    # phone) until the officer upgrades or makes that phone the sync phone.
+    device = (request.headers.get("x-device-id") or "unknown")[:64]
+    if user.get("plan", "free") != "pro":
+        if not user.get("sync_device"):
+            await db.users.update_one({"id": user["id"], "sync_device": None}, {"$set": {"sync_device": device}})
+        elif user["sync_device"] != device:
+            raise HTTPException(403, "pro_required_multi_device")
     server_time = now()
     results = [await apply_change(user["id"], ch) for ch in body.changes]
     await purge_expired_deleted(user["id"])
@@ -761,7 +777,16 @@ async def sync_shifts(body: SyncIn, user: dict = Depends(current_user)):
 
 app.include_router(api)
 app.include_router(public_router)
+app.include_router(make_billing_router(db, current_user, logger))
 install_security(app, client_ip)
+
+
+@app.post("/api/devices/primary")
+async def make_sync_phone(request: Request, user: dict = Depends(current_user)):
+    """Free plan: make this phone the one that syncs (the previous phone stops syncing; nothing is deleted)."""
+    device = (request.headers.get("x-device-id") or "unknown")[:64]
+    await db.users.update_one({"id": user["id"]}, {"$set": {"sync_device": device}})
+    return {"ok": True}
 
 app.add_middleware(
     CORSMiddleware,
@@ -786,6 +811,10 @@ async def startup():
     await db.pp_shifts.create_index([("user_id", 1), ("updated_at", 1)])
     await db.login_attempts.create_index("key", unique=True)
     await db.login_attempts.create_index("expires_at", expireAfterSeconds=0)
+    await db.subscriptions.create_index("token_hash", unique=True)
+    await db.subscriptions.create_index("user_id")
+    await db.rtdn_events.create_index("message_id", unique=True)
+    await db.rtdn_events.create_index("at", expireAfterSeconds=90 * 86400)
     # Deletion log outlives the longest backup so restores can re-apply deletions.
     await db.deletion_log.create_index("deleted_at", expireAfterSeconds=DELETION_LOG_DAYS * 86400)
     if os.environ.get("ENVIRONMENT", "development") == "production":
@@ -814,6 +843,8 @@ def production_config_problems() -> list:
     origins = os.environ.get("CORS_ORIGINS", "")
     if "*" in origins or "localhost" in origins or "preview.emergentagent.com" in origins:
         p.append("CORS_ORIGINS must list only production origins")
+    if os.environ.get("BILLING_MODE", "mock") != "google":
+        p.append("BILLING_MODE must be 'google' (mock billing is for development only)")
     for k in ("PUBLIC_BASE_URL", "SUPPORT_EMAIL", "DATA_CONTROLLER_NAME"):
         v = os.environ.get(k, "")
         if not v or "YOUR-DOMAIN" in v or "[" in v:

@@ -29,3 +29,7 @@ export function greeting(d = new Date()) {
   if (h < 18) return "Good afternoon";
   return "Good evening";
 }
+
+export function endDate(iso?: string | null) {
+  return iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "";
+}

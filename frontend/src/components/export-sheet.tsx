@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/src/auth";
 import { useToast } from "@/src/components/toast";
 import { Button } from "@/src/components/ui";
+import { ProPrompt } from "@/src/components/pro-prompt";
+import { useEntitlement } from "@/src/billing/entitlement";
 import { LocalShift } from "@/src/shifts/provider";
 import { reportRows, shareReport } from "@/src/shifts/report";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
@@ -21,6 +23,7 @@ export function ExportSheet({ visible, onClose, shifts, label, from, to }: Props
   const { colors } = useTheme();
   const [format, setFormat] = useState<"csv" | "pdf" | null>(null);
   const [busy, setBusy] = useState(false);
+  const { isPro } = useEntitlement();
   const count = reportRows(shifts, from, to).length;
 
   const close = () => {
@@ -52,7 +55,11 @@ export function ExportSheet({ visible, onClose, shifts, label, from, to }: Props
           {!format ? (
             <View style={{ gap: spacing.sm }}>
               <Button testID="export-csv-button" label="CSV spreadsheet" icon="grid-outline" variant="secondary" onPress={() => setFormat("csv")} />
-              <Button testID="export-pdf-button" label="PDF report" icon="document-text-outline" variant="secondary" onPress={() => setFormat("pdf")} />
+              {isPro ? (
+                <Button testID="export-pdf-button" label="PDF report" icon="document-text-outline" variant="secondary" onPress={() => setFormat("pdf")} />
+              ) : (
+                <ProPrompt testID="export-pdf-pro-prompt" title="PDF reports with Pro" body="CSV export of all your records is always free." />
+              )}
               <Button testID="export-close-button" label="Cancel" variant="ghost" onPress={close} />
             </View>
           ) : (

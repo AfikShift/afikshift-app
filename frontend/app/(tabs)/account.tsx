@@ -9,8 +9,10 @@ import { ExportSheet } from "@/src/components/export-sheet";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { useToast } from "@/src/components/toast";
 import { Card, ListRow, SectionTitle } from "@/src/components/ui";
-import { currencySymbol, initials } from "@/src/format";
+import { currencySymbol, endDate, initials } from "@/src/format";
 import { useShifts } from "@/src/shifts/provider";
+import { useEntitlement } from "@/src/billing/entitlement";
+import { openManageSubscription, restorePurchases } from "@/src/billing/play";
 
 /** Public pages (no login needed); the host comes from configuration. */
 const openPublic = (page: "privacy" | "terms") => WebBrowser.openBrowserAsync(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/public/${page}`);
@@ -24,6 +26,7 @@ export default function Account() {
   const { colors } = useTheme();
   const bottom = useTabBottomPadding();
   const { shifts, deleted } = useShifts();
+  const { isPro, ent, apply } = useEntitlement();
   const [exporting, setExporting] = useState(false);
   const rate = user?.hourly_rate != null ? `${currencySymbol(user.currency)}${user.hourly_rate.toFixed(2)}/hr` : "Not set";
 
@@ -45,7 +48,7 @@ export default function Account() {
             <View style={styles.planPill}>
               <Ionicons name="sparkles-outline" size={12} color={colors.onBrandTertiary} />
               <Text style={styles.planText} testID="account-plan-text">
-                Free plan
+                {isPro ? "Pro plan" : "Free plan"}
               </Text>
             </View>
           </View>
@@ -77,8 +80,21 @@ export default function Account() {
             testID="account-subscription-row"
             icon="card-outline"
             title="Plan"
-            value="Free"
-            onPress={() => toast("Paid plans are not active yet", "info")}
+            value={isPro ? (ent?.will_renew ? `Pro · renews ${endDate(ent?.expires_at)}` : `Pro · ends ${endDate(ent?.expires_at)}`) : "Free – upgrade"}
+            onPress={() => router.push("/upgrade")}
+          />
+          {isPro && (
+            <ListRow testID="account-manage-subscription-row" icon="open-outline" title="Manage subscription" onPress={() => openManageSubscription(ent?.product_id ?? undefined)} />
+          )}
+          <ListRow
+            testID="account-restore-row"
+            icon="refresh-outline"
+            title="Restore purchases"
+            onPress={() =>
+              restorePurchases()
+                .then((e) => apply(e).then(() => toast(e.plan === "pro" ? "Pro restored" : "No active subscription found", "info")))
+                .catch((e) => toast((e as Error).message, "error"))
+            }
             last
           />
         </Card>

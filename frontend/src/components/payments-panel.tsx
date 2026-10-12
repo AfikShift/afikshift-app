@@ -6,6 +6,8 @@ import { useAuth } from "@/src/auth";
 import { PickerField } from "@/src/components/picker-field";
 import { PrivacyNotice } from "@/src/components/privacy-notice";
 import { PaymentClash } from "@/src/components/payment-clash";
+import { ProPrompt } from "@/src/components/pro-prompt";
+import { useEntitlement } from "@/src/billing/entitlement";
 import { useToast } from "@/src/components/toast";
 import { Button, TextField } from "@/src/components/ui";
 import { currencySymbol, money } from "@/src/format";
@@ -17,6 +19,7 @@ import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme"
 export function PaymentsPanel({ shift }: { shift: LocalShift }) {
   const { user } = useAuth();
   const { addPayment, removePayment } = useShifts();
+  const { isPro } = useEntitlement();
   const toast = useToast();
   const styles = useStyles();
   const { colors } = useTheme();
@@ -139,9 +142,12 @@ export function PaymentsPanel({ shift }: { shift: LocalShift }) {
           </View>
         </View>
       ) : (
-        shift.status === "completed" && (
+        shift.status === "completed" &&
+        (isPro || active.length === 0 ? (
           <Button testID="payment-add-button" label="Record payment" icon="add" variant="secondary" onPress={() => open("new")} />
-        )
+        ) : (
+          <ProPrompt testID="payment-pro-prompt" title="Record more payments with Pro" body="Free records one payment per shift. Existing payments are always kept." />
+        ))
       )}
     </View>
   );

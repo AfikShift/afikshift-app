@@ -57,7 +57,7 @@ export default function Home() {
   const bottom = useTabBottomPadding();
   const [refreshing, setRefreshing] = useState(false);
   const month = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-  const { shifts, syncNow } = useShifts();
+  const { shifts, syncNow, syncBlocked, makeSyncPhone } = useShifts();
   const stats = useMemo(() => monthStats(shifts, toISODate(new Date()).slice(0, 7)), [shifts]);
   const next = useMemo(() => nextShift(shifts), [shifts]);
 
@@ -78,6 +78,23 @@ export default function Home() {
         contentContainerStyle={[styles.content, { paddingBottom: bottom }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brandSecondary} />}
       >
+        {syncBlocked && (
+          <View style={styles.banner} testID="home-sync-blocked-banner">
+            <Ionicons name="phone-portrait-outline" size={20} color={colors.warning} />
+            <View style={{ flex: 1, gap: spacing.sm }}>
+              <Text style={styles.bannerTitle}>Another phone is your sync phone</Text>
+              <Text style={styles.bannerBody}>
+                Free syncs from one phone. Records on this phone are safe and keep working offline. Upgrade to Pro to sync every device, or make this your sync phone.
+              </Text>
+              <Pressable testID="home-make-sync-phone" onPress={() => makeSyncPhone().catch(() => {})}>
+                <Text style={[styles.bannerTitle, { color: colors.brandSecondary }]}>Use this phone for sync</Text>
+              </Pressable>
+              <Pressable testID="home-sync-upgrade" onPress={() => router.push("/upgrade")}>
+                <Text style={[styles.bannerTitle, { color: colors.brandSecondary }]}>See Pro</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
         {user?.hourly_rate == null && (
           <Animated.View entering={FadeInDown.duration(400)}>
             <Pressable testID="home-set-rate-banner" onPress={() => router.push("/profile")} style={styles.banner}>

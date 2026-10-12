@@ -44,6 +44,9 @@ type Ctx = {
   online: boolean;
   lastSyncedAt: string | null;
   syncNow: () => Promise<void>;
+  /** Free plan: another phone is the sync phone; this phone's records stay safely on it. */
+  syncBlocked: boolean;
+  makeSyncPhone: () => Promise<void>;
   create: (data: ShiftData) => Promise<string>;
   update: (id: string, patch: Partial<ShiftData>) => Promise<void>;
   remove: (id: string) => Promise<void>;
@@ -111,6 +114,7 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [syncBlocked, setSyncBlocked] = useState(false);
   const [online, setOnline] = useState(true);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const dbRef = useRef<Persisted>(EMPTY);
@@ -208,12 +212,14 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
           return { shifts: purgeExpired(shifts), since: res.server_time };
         });
         setFailed(false);
+        setSyncBlocked(false);
         setOnline(true);
         setLastSyncedAt(new Date().toISOString());
       } while (rerun.current);
     } catch (e) {
       // No connection: data stays safely on the device. Other errors: show "Sync failed".
-      if (!(e instanceof ApiError && e.status === 0)) setFailed(true);
+      if (e instanceof ApiError && e.status === 403 && e.message === "pro_required_multi_device") setSyncBlocked(true);
+      else if (!(e instanceof ApiError && e.status === 0)) setFailed(true);
       else setOnline(false);
     } finally {
       syncLock.current = false;
@@ -289,6 +295,12 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
       online,
       lastSyncedAt,
       syncNow,
+      syncBlocked,
+      makeSyncPhone: async () => {
+        await request("/devices/primary", { method: "POST" });
+        setSyncBlocked(false);
+        await syncNow();
+      },
       create: async (data) => {
         const id = Crypto.randomUUID();
         const ts = new Date().toISOString();
@@ -406,7 +418,7 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
         });
       },
     };
-  }, [db, ready, syncing, failed, online, lastSyncedAt, syncNow, write, commit, scheduleSync]);
+  }, [db, ready, syncing, failed, syncBlocked, online, lastSyncedAt, syncNow, write, commit, scheduleSync]);
 
   return <ShiftsContext.Provider value={value}>{children}</ShiftsContext.Provider>;
 }

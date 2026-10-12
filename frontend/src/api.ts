@@ -37,8 +37,20 @@ function errorMessage(data: any, status: number): string {
   return "Something went wrong. Please try again.";
 }
 
+let deviceId: string | null = null;
+/** Stable random id for this installation (Free plan syncs from one phone). */
+export async function getDeviceId() {
+  if (deviceId) return deviceId;
+  deviceId = await storage.getItem("dc_device_id", null as string | null);
+  if (!deviceId) {
+    deviceId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+    await storage.setItem("dc_device_id", deviceId);
+  }
+  return deviceId;
+}
+
 async function raw(path: string, init: RequestInit = {}, auth = true): Promise<Response> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": "application/json", "X-Device-Id": await getDeviceId() };
   if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
   return fetch(`${BASE}${path}`, { ...init, headers: { ...headers, ...(init.headers as any) } });
 }

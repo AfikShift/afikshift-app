@@ -108,3 +108,7 @@
 ## M3c — main agent
 - Backend 122/122 serial (`pytest -n 0`): new tests/test_m3c.py (24). Security audit run; SEC-001/002/005 fixed, SEC-003/004 documented.
 - Frontend to test: payment clash panel (payment-clash-panel-edit / -decision / -none pending), Keep this -> payment-clash-confirm -> payment-clash-confirm-button; payments-history-note; Account rows account-privacy-row / account-terms-row; public pages /api/public/privacy, /terms, /delete-account (2-step form, explicit checkbox).
+
+## M4 Stage A — main agent
+- Backend 145/145 serial (122 + 23 in tests/test_m4_billing.py, mocked Google Play API via db.mock_play, BILLING_MODE=mock).
+- Note: backend tests sync the main user without X-Device-Id, which sets users.sync_device="unknown"; unset it before UI testing ($unset sync_device) or the web app will show the "Another phone is your sync phone" banner.

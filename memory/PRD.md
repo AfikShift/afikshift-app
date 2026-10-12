@@ -78,3 +78,11 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Docs: docs/BACKUPS.md, docs/HOSTING.md, docs/GOOGLE_PLAY.md (Data Safety evidence table + gaps), backend/.env.example, deploy/Dockerfile, deploy/docker-compose.yml.
 - Tests: 122/122 backend serial (98 + 24 in tests/test_m3c.py); frontend E2E iteration_6 pass.
 - Placeholders to replace: PUBLIC_BASE_URL, SUPPORT_EMAIL, DATA_CONTROLLER_NAME, POLICY_LAST_UPDATED, EMAIL_FROM_ADDRESS, provider names/log period in public_pages.py, Android package id.
+
+## Milestone 4 Stage A — DONE (mocked Google Play; Stage B not authorised)
+- Plans: free/pro in PLAN_FEATURES (server). billing.py: /api/billing/verify, /restore, /entitlement, /rtdn (shared secret, dedupe by messageId); Google subscriptionsv2 + acknowledge (BILLING_MODE=mock uses db.mock_play). Tokens AES-GCM encrypted + sha256 index; purchases bound via obfuscatedAccountIdAndroid (account_ref); linkedPurchaseToken replaces old; stale expiry reconciled on entitlement check.
+- Offline Pro pass: Ed25519-signed (server key ENTITLEMENT_SIGNING_KEY; app verifies with EXPO_PUBLIC_ENTITLEMENT_PUBLIC_KEY), exp = min(paid period, 7 days).
+- Free limits: 30-day history in app (older stored; prompt -> CSV/upgrade), 1 payment per shift (client), no dashboard nav/by-duty, CSV only (no PDF), sync from one phone (server 403 pro_required_multi_device; POST /api/devices/primary switches phone).
+- App: expo-iap (dev build only), app/upgrade.tsx, src/billing/{entitlement.tsx,play.ts}, ProPrompt, Account subscription rows (status, manage, restore).
+- Tests: 145/145 backend serial (122 + 23 tests/test_m4_billing.py); frontend iteration_7 pass. Docs: docs/BILLING.md.
+- Stage B (needs approval): Play Console, products, service account, Pub/Sub RTDN + OIDC verification, permanent package id, signed build, sandbox purchases.
