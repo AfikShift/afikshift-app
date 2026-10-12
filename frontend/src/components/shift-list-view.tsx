@@ -3,8 +3,10 @@ import { FlatList, RefreshControl, Text, View } from "react-native";
 
 import { Segmented } from "@/src/components/segmented";
 import { ShiftCard } from "@/src/components/shift-card";
+import { money } from "@/src/format";
 import { formatHours, interval } from "@/src/shifts/calc";
 import { LocalShift } from "@/src/shifts/provider";
+import { summarise } from "@/src/shifts/stats";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 type Tab = "upcoming" | "history";
@@ -47,12 +49,12 @@ export function ShiftListView({
     return hist;
   }, [shifts, tab, filter]);
 
-  const done = data.filter((s) => s.status === "completed");
-  const hours = done.reduce((a, s) => a + s.payable_hours, 0);
+  // History totals use the same rules as Home, Earnings and reports.
+  const t = summarise(data);
   const summary =
     tab === "upcoming"
       ? `${data.length} upcoming · ${formatHours(Math.round(data.reduce((a, s) => a + s.payable_hours, 0) * 100) / 100)} booked`
-      : `${data.length} shifts · ${done.length} completed · ${formatHours(Math.round(hours * 100) / 100)}`;
+      : `${data.length} shifts · ${t.completed} completed · ${formatHours(t.hours)} · est. ${money(t.estimated, currency)} · received ${money(t.received, currency)}`;
 
   return (
     <FlatList

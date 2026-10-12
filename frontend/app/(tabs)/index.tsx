@@ -5,6 +5,7 @@ import { Platform, Pressable, RefreshControl, ScrollView, Text, View } from "rea
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useAuth } from "@/src/auth";
+import { ProvisionalBanner } from "@/src/components/provisional-banner";
 import { SyncBadge } from "@/src/components/sync-badge";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { tap } from "@/src/components/ui";
@@ -151,6 +152,7 @@ export default function Home() {
             {stats.booked} booked · {money(stats.projected, user?.currency)} projected
           </Text>
           <Text style={styles.disclaimer}>Estimates only — not official payroll records. Booked shifts are projected, not earned.</Text>
+          <ProvisionalBanner count={stats.provisional} testID="home-provisional-banner" />
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(240).duration(450)}>

@@ -175,10 +175,11 @@ class TestDeleteAndPull:
         assert r2.json()["results"][0]["status"] == "applied"
         assert r2.json()["results"][0]["server"]["deleted"] is True
 
-        # Initial pull (since=null) -> tombstone excluded
+        # Initial pull (since=null) -> M3b S2: recently deleted (<90 days) shifts are included,
+        # flagged deleted, so they can be restored from Recently Deleted on a new device.
         r3 = api_client.post(f"{API}/shifts/sync", headers=auth_headers, json={"changes": []})
-        ids = [s["id"] for s in r3.json()["shifts"]]
-        assert ch["id"] not in ids
+        found = [s for s in r3.json()["shifts"] if s["id"] == ch["id"]]
+        assert found and found[0]["deleted"] is True
 
         # Incremental pull (since=before delete) -> tombstone present
         r4 = api_client.post(f"{API}/shifts/sync", headers=auth_headers,

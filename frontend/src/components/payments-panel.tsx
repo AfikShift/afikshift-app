@@ -8,14 +8,14 @@ import { PrivacyNotice } from "@/src/components/privacy-notice";
 import { useToast } from "@/src/components/toast";
 import { Button, TextField } from "@/src/components/ui";
 import { currencySymbol, money } from "@/src/format";
-import { PAYMENT_LABEL, Payment, formatDateLong, toISODate, validatePayment } from "@/src/shifts/calc";
+import { PAYMENT_LABEL, Payment, clashGroups, formatDateLong, toISODate, validatePayment } from "@/src/shifts/calc";
 import { LocalShift, useShifts } from "@/src/shifts/provider";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 /** Payments recorded against one shift: list, add, edit (replace) and delete. */
 export function PaymentsPanel({ shift }: { shift: LocalShift }) {
   const { user } = useAuth();
-  const { addPayment, removePayment } = useShifts();
+  const { addPayment, removePayment, resolvePaymentClash } = useShifts();
   const toast = useToast();
   const styles = useStyles();
   const { colors } = useTheme();
@@ -82,6 +82,35 @@ export function PaymentsPanel({ shift }: { shift: LocalShift }) {
           danger={out != null && out < 0}
         />
       </View>
+
+      {clashGroups(shift.payments).map((g) => (
+        <View key={g[0].origin_id || g[0].id} style={styles.clash} testID="payment-clash-panel">
+          <View style={styles.clashHead}>
+            <Ionicons name="alert-circle-outline" size={18} color={colors.warning} />
+            <Text style={styles.clashTitle}>Payment edited on two devices</Text>
+          </View>
+          <Text style={styles.rowSub}>
+            Totals are provisional and count only the lower amount until you choose the correct payment.
+          </Text>
+          {g.map((p) => (
+            <View key={p.id} style={styles.clashRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowAmount}>{money(p.amount, cur)}</Text>
+                <Text style={styles.rowSub} numberOfLines={1}>
+                  {formatDateLong(p.date)}
+                  {p.note ? ` · ${p.note}` : ""}
+                </Text>
+              </View>
+              <Button
+                testID={`payment-clash-keep-${p.id}`}
+                label="Keep this"
+                variant="secondary"
+                onPress={() => resolvePaymentClash(shift.id, p.id).then(() => toast("Payment confirmed"))}
+              />
+            </View>
+          ))}
+        </View>
+      ))}
 
       {active.map((p) => (
         <View key={p.id} style={styles.row} testID={`payment-row-${p.id}`}>
@@ -160,4 +189,8 @@ const useStyles = makeStyles((c) => ({
   form: { gap: spacing.md },
   formRow: { flexDirection: "row", gap: spacing.sm },
   hint: { fontFamily: fonts.regular, fontSize: type.sm + 1, color: c.muted },
+  clash: { backgroundColor: c.warningSoft, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
+  clashHead: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  clashTitle: { fontFamily: fonts.bold, fontSize: type.base, color: c.onSurface },
+  clashRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
 }));

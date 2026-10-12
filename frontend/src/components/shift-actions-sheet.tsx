@@ -115,7 +115,9 @@ export function ShiftActionsSheet({ shift, onClose }: { shift: LocalShift | null
                 </View>
               ) : (
                 <View style={{ gap: spacing.sm }} testID="shift-delete-confirm">
-                  <Text style={styles.confirm}>Delete this shift permanently? Cancelling keeps it in your history instead.</Text>
+                  <Text style={styles.confirm}>
+                    Delete this shift? It moves to Recently Deleted with all its payments for 90 days and can be restored from Account. Cancelling keeps it in your history instead.
+                  </Text>
                   <Button testID="shift-delete-confirm-button" label="Delete shift" variant="danger" onPress={() => run(() => remove(shift.id), "Shift deleted")} />
                   <Button testID="shift-delete-cancel-button" label="Keep it" variant="ghost" onPress={() => setConfirmDelete(false)} />
                 </View>

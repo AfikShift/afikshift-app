@@ -60,6 +60,11 @@ export function ShiftCard({ shift, currency, onPress, showDate = true }: { shift
               <Text style={[styles.pillText, { color: shift.payment_status === "paid" ? colors.success : colors.warning }]}>{PAYMENT_LABEL[shift.payment_status]}</Text>
             </View>
           )}
+          {shift.payment_clash && (
+            <View style={[styles.pill, { backgroundColor: colors.warningSoft }]} testID={`shift-card-provisional-${shift.id}`}>
+              <Text style={[styles.pillText, { color: colors.warning }]}>Provisional</Text>
+            </View>
+          )}
         </View>
         {shift.status === "completed" && shift.outstanding != null && (
           <Text style={styles.money}>

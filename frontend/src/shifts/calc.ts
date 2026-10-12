@@ -5,7 +5,7 @@ export type ShiftStatus = "booked" | "completed" | "cancelled";
 export type PaymentStatus = "pending" | "partially_paid" | "paid";
 
 /** A payment received for a shift. Immutable once created; edit = tombstone old + add new. */
-export type Payment = { id: string; amount: number; date: string; note: string; deleted: boolean };
+export type Payment = { id: string; amount: number; date: string; note: string; deleted: boolean; origin_id?: string | null };
 
 export type ShiftData = {
   officer_name: string;
@@ -33,12 +33,36 @@ export function mergePayments(a: Payment[] = [], b: Payment[] = []): Payment[] {
   return [...m.values()].sort((x, y) => (x.date === y.date ? x.id.localeCompare(y.id) : x.date.localeCompare(y.date)));
 }
 
+/** Active payments grouped by the original payment they descend from. */
+export function paymentGroups(payments: Payment[] = []) {
+  const g = new Map<string, Payment[]>();
+  for (const p of payments) if (!p.deleted) g.set(p.origin_id || p.id, [...(g.get(p.origin_id || p.id) ?? []), p]);
+  return [...g.values()];
+}
+
+/** Groups where one payment was edited differently on two devices (an edit clash). */
+export function clashGroups(payments: Payment[] = []) {
+  return paymentGroups(payments).filter((g) => g.length > 1);
+}
+
+/** Payments that count towards totals: in a clash only the lowest version counts (provisional),
+ *  so a payment is never counted twice. Mirrors counted_payments() on the server. */
+export function countedPayments(payments: Payment[] = []) {
+  const byLowest = (a: Payment, b: Payment) => Math.round(a.amount * 100) - Math.round(b.amount * 100) || (a.id < b.id ? -1 : 1);
+  return paymentGroups(payments).map((g) => [...g].sort(byLowest)[0]);
+}
+
 /** Received / outstanding / status, always derived from recorded payments (pence arithmetic). */
 export function paymentSummary(estimated: number | null, payments: Payment[] = []) {
-  const pence = payments.filter((p) => !p.deleted).reduce((a, p) => a + Math.round(p.amount * 100), 0);
+  const pence = countedPayments(payments).reduce((a, p) => a + Math.round(p.amount * 100), 0);
   const estP = estimated == null ? null : Math.round(estimated * 100);
   const status: PaymentStatus = pence === 0 ? "pending" : estP != null && pence >= estP ? "paid" : "partially_paid";
-  return { amount_received: pence / 100, outstanding: estP == null ? null : (estP - pence) / 100, payment_status: status };
+  return {
+    amount_received: pence / 100,
+    outstanding: estP == null ? null : (estP - pence) / 100,
+    payment_status: status,
+    payment_clash: clashGroups(payments).length > 0,
+  };
 }
 
 export function validatePayment(amount: number, date: string, note: string): Record<string, string> {

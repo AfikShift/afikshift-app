@@ -101,3 +101,6 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## M3b (S1, S2, F4, F5) — main agent
+- Backend: 98/98 pytest pass serially (`pytest -n 0`); new file tests/test_m3b_safeguards.py (14 tests). With -n 2, TestAccountThrottle can collide with TestLogin (shared main-user lockout counters) — pre-existing parallelism artefact.
+- Frontend to test: Earnings tab (week/month/year, prev/next, totals, by duty, export button), ExportSheet (CSV/PDF -> privacy warning -> share), Recently Deleted screen (/recently-deleted, from Account), delete moves shift to Recently Deleted + restore with payments, provisional banner/pill + payment clash panel (Keep this), History summary totals match Earnings/Home.

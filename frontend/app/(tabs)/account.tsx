@@ -1,12 +1,15 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/src/auth";
+import { ExportSheet } from "@/src/components/export-sheet";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { useToast } from "@/src/components/toast";
 import { Card, ListRow, SectionTitle } from "@/src/components/ui";
 import { currencySymbol, initials } from "@/src/format";
+import { useShifts } from "@/src/shifts/provider";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 export default function Account() {
@@ -16,6 +19,8 @@ export default function Account() {
   const styles = useStyles();
   const { colors } = useTheme();
   const bottom = useTabBottomPadding();
+  const { shifts, deleted } = useShifts();
+  const [exporting, setExporting] = useState(false);
   const rate = user?.hourly_rate != null ? `${currencySymbol(user.currency)}${user.hourly_rate.toFixed(2)}/hr` : "Not set";
 
   return (
@@ -51,12 +56,13 @@ export default function Account() {
         <SectionTitle>Security & privacy</SectionTitle>
         <Card style={styles.group}>
           <ListRow testID="account-security-row" icon="shield-checkmark-outline" title="Security" value="Password, biometrics" onPress={() => router.push("/security")} />
+          <ListRow testID="account-deleted-row" icon="trash-bin-outline" title="Recently deleted" value={deleted.length ? String(deleted.length) : "90 days"} onPress={() => router.push("/recently-deleted")} />
           <ListRow
             testID="account-export-row"
             icon="download-outline"
             title="Export my data"
             value="CSV / PDF"
-            onPress={() => toast("Data export arrives with reports in Milestone 3", "info")}
+            onPress={() => setExporting(true)}
             last
           />
         </Card>
@@ -85,6 +91,7 @@ export default function Account() {
 
         <Text style={styles.footer}>DutyConnect · Stay Connected. Stay Organised.{"\n"}Figures are estimates, not official payroll records.</Text>
       </ScrollView>
+      <ExportSheet visible={exporting} onClose={() => setExporting(false)} shifts={shifts} label="All records" />
     </View>
   );
 }

@@ -464,6 +464,9 @@ class PaymentIn(BaseModel):
     date: str = Field(pattern=DATE_RE)
     note: str = Field(default="", max_length=40)
     deleted: bool = False
+    # Id of the original payment this one (directly or indirectly) replaces. Two active payments
+    # sharing an origin = the same payment edited differently on two devices (an edit clash).
+    origin_id: Optional[str] = Field(default=None, pattern=UUID_RE)
 
     @model_validator(mode="after")
     def _check(self):
@@ -536,8 +539,21 @@ def merge_payments(server: list, incoming: list) -> list:
     return sorted(out.values(), key=lambda p: (p["date"], p["id"]))
 
 
+def counted_payments(payments: list) -> tuple:
+    """Active payments with edit clashes collapsed so a payment edited on two devices is never
+    counted twice. Until the officer picks the correct one, only the lowest version counts and the
+    figures are flagged provisional. Mirrors countedPayments() in the app."""
+    groups: dict = {}
+    for p in payments:
+        if not p.get("deleted"):
+            groups.setdefault(p.get("origin_id") or p["id"], []).append(p)
+    counted = [min(g, key=lambda p: (round(p["amount"] * 100), p["id"])) for g in groups.values()]
+    return counted, any(len(g) > 1 for g in groups.values())
+
+
 def payment_fields(estimated: Optional[float], payments: list) -> dict:
-    pence = sum(round(p["amount"] * 100) for p in payments if not p.get("deleted"))
+    counted, clash = counted_payments(payments)
+    pence = sum(round(p["amount"] * 100) for p in counted)
     received = pence / 100
     outstanding = None if estimated is None else (round(estimated * 100) - pence) / 100
     if pence == 0:
@@ -546,7 +562,7 @@ def payment_fields(estimated: Optional[float], payments: list) -> dict:
         status = "paid"
     else:
         status = "partially_paid"
-    return {"amount_received": received, "outstanding": outstanding, "payment_status": status}
+    return {"amount_received": received, "outstanding": outstanding, "payment_status": status, "payment_clash": clash}
 
 
 def computed(d: dict) -> dict:
@@ -561,7 +577,8 @@ def shift_out(doc: dict) -> dict:
     out.setdefault("payments", [])
     # Always derive payment status from recorded payments (legacy manual statuses become Pending).
     out.update(payment_fields(out.get("estimated_earnings"), out["payments"]))
-    for k in ("created_at", "updated_at"):
+    out.setdefault("deleted_at", None)
+    for k in ("created_at", "updated_at", "deleted_at"):
         if isinstance(out.get(k), datetime):
             out[k] = out[k].isoformat()
     return out
@@ -575,6 +592,12 @@ async def apply_change(uid: str, ch: ShiftChange) -> dict:
         return {"id": ch.id, "status": "duplicate", "server": shift_out(cur)}  # retry of an applied change
     incoming = ch.data.model_dump() if ch.data else None
     fields = {"deleted": ch.deleted, "last_change_id": ch.change_id, "updated_at": now()}
+    # Deleted shifts keep all their details and payments for DELETED_RETENTION_DAYS (Recently
+    # Deleted); a change with deleted=false restores them.
+    if ch.deleted:
+        fields["deleted_at"] = cur["deleted_at"] if cur and cur.get("deleted") and cur.get("deleted_at") else now()
+    else:
+        fields["deleted_at"] = None
     if incoming:
         if cur:
             incoming["payments"] = merge_payments(cur.get("payments", []), incoming["payments"])
@@ -607,15 +630,27 @@ async def apply_change(uid: str, ch: ShiftChange) -> dict:
     return {"id": ch.id, "status": "applied", "server": shift_out(res)}
 
 
+DELETED_RETENTION_DAYS = 90
+
+
+async def purge_expired_deleted(uid: str):
+    """Permanently remove shifts (and their payments) deleted more than 90 days ago."""
+    cutoff = now() - timedelta(days=DELETED_RETENTION_DAYS)
+    await db.pp_shifts.delete_many({"user_id": uid, "deleted": True, "$or": [
+        {"deleted_at": {"$lt": cutoff}}, {"deleted_at": None, "updated_at": {"$lt": cutoff}}]})
+
+
 @api.post("/shifts/sync")
 async def sync_shifts(body: SyncIn, user: dict = Depends(current_user)):
     server_time = now()
     results = [await apply_change(user["id"], ch) for ch in body.changes]
+    await purge_expired_deleted(user["id"])
     q = {"user_id": user["id"]}
     if body.since:
         q["updated_at"] = {"$gt": body.since - timedelta(seconds=2)}  # small overlap; merging is idempotent
     else:
-        q["deleted"] = False
+        # Full pull: active shifts plus Recently Deleted ones still within the retention window.
+        q["$or"] = [{"deleted": False}, {"deleted_at": {"$gt": now() - timedelta(days=DELETED_RETENTION_DAYS)}}]
     docs = await db.pp_shifts.find(q, {"_id": 0}).to_list(5000)
     return {"results": results, "shifts": [shift_out(d) for d in docs], "server_time": server_time.isoformat()}
 

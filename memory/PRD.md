@@ -60,3 +60,12 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - P1: calendar reminders, personal calendar sync
 - Phase 3 (needs approval): Android native SMS module; Phase 4: RevenueCat subscriptions, admin dashboard
 - Before launch: confirm Emergent email limits/charges; set DEV_LOG_CODES=false in production
+
+## Milestone 3b — DONE (June 2026)
+- S1: payments carry `origin_id` (lineage). Two active payments with same origin = edit clash → counted once (lowest amount), `payment_clash` flag, "Provisional" warnings on Home/Earnings/shift card/report; officer resolves via "Keep this" in Payments panel.
+- S2: delete → Recently Deleted for 90 days (`deleted_at`), payments kept, excluded from totals; restore offline-capable via normal sync; server purges >90 days on sync. Screen: /recently-deleted (Account).
+- F4: Earnings tab — week/month/year, prev/next, estimated/received/outstanding/hours/booked, by duty type.
+- F5: CSV/PDF export (expo-print, expo-sharing, expo-file-system) from Earnings period or Account (all records); privacy warning before sharing; CSV formula-injection guard; temp files deleted after sharing.
+- Single calculation module `src/shifts/stats.ts summarise()` used by Home, Earnings, History, reports.
+- Tests: 98/98 backend (84 existing + 14 in tests/test_m3b_safeguards.py), run serially `pytest -n 0`. Frontend E2E iteration_5 pass.
+## Next (needs approval): Milestone 3c export/backup; Phase 3 SMS forwarding; Phase 4 billing/admin.

@@ -53,7 +53,8 @@
           "faceIDPermission": "Unlock DutyConnect securely with Face ID"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
