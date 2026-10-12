@@ -26,6 +26,7 @@ from email_service import send_verification_code, send_reset_code, send_deletion
 from public_pages import router as public_router  # noqa: E402
 from security import install_security  # noqa: E402
 from billing import make_router as make_billing_router  # noqa: E402
+from referrals import make_router as make_referrals_router  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("dutyconnect")
@@ -176,6 +177,7 @@ class UserOut(BaseModel):
     notification_prefs: NotificationPrefs
     shift_templates: list = []
     specialist_presets: bool = False
+    is_admin: bool = False
     plan: str
     features: dict
     email_verified: bool
@@ -188,7 +190,7 @@ class UserOut(BaseModel):
                    currency=d.get("currency", "GBP"), hourly_rate=d.get("hourly_rate"),
                    notification_prefs=NotificationPrefs(**d.get("notification_prefs", {})),
                    shift_templates=d.get("shift_templates", []),
-                   specialist_presets=d.get("specialist_presets", False),
+                   specialist_presets=d.get("specialist_presets", False), is_admin=bool(d.get("is_admin")),
                    plan=d.get("plan", "free"), features=PLAN_FEATURES[d.get("plan", "free")],
                    email_verified=d.get("email_verified", False), created_at=d["created_at"])
 
@@ -197,6 +199,7 @@ class RegisterIn(BaseModel):
     full_name: str = Field(min_length=2, max_length=80)
     email: EmailStr
     password: str
+    referral_code: Optional[str] = Field(default=None, max_length=16)
     _pw = field_validator("password")(lambda cls, v: validate_password_strength(v))
 
 
@@ -336,6 +339,9 @@ async def register(body: RegisterIn):
         "notification_prefs": NotificationPrefs().model_dump(), "plan": "free",
         "email_verified": False, "created_at": now(), "updated_at": now(),
     })
+    if body.referral_code and body.referral_code.strip():
+        # Invalid codes are ignored here (same response for everyone); the app can add a code later.
+        await referral_router.apply_code(await db.users.find_one({"id": uid}, {"_id": 0}), body.referral_code)
     code = await create_code(uid, "verify")
     send_later(send_verification_code, email, body.full_name.strip(), code)
     return GENERIC_SENT
@@ -489,6 +495,7 @@ async def delete_user_data(user: dict, via: str):
     uid = user["id"]
     for coll in ("action_codes", "pp_shifts", "payments", "subscriptions"):
         await db[coll].delete_many({"user_id": uid})
+    await db.referrals.delete_many({"$or": [{"referrer_id": uid}, {"friend_id": uid}]})
     await db.sessions.update_many({"user_id": uid}, {"$set": {"revoked": True, "account_deleted": True}})
     await db.login_attempts.delete_one({"key": "acct:" + account_hash(user["email"])})
     await db.deletion_log.insert_one({"user_id": uid, "account_hash": account_hash(user["email"]),
@@ -825,7 +832,10 @@ async def sync_shifts(body: SyncIn, request: Request, user: dict = Depends(curre
 
 app.include_router(api)
 app.include_router(public_router)
-app.include_router(make_billing_router(db, current_user, logger))
+billing_router = make_billing_router(db, current_user, logger)
+app.include_router(billing_router)
+referral_router = make_referrals_router(db, current_user, billing_router, logger)
+app.include_router(referral_router)
 install_security(app, client_ip)
 
 
@@ -845,7 +855,7 @@ async def data_download(user: dict = Depends(current_user)):
             if isinstance(sh.get(k), datetime):
                 sh[k] = sh[k].isoformat()
     profile = {k: user.get(k) for k in ("email", "full_name", "professional_category", "currency", "hourly_rate",
-                                        "notification_prefs", "shift_templates", "specialist_presets", "plan")}
+                                        "notification_prefs", "shift_templates", "specialist_presets", "plan", "referral_code")}
     subs = await db.subscriptions.find({"user_id": user["id"]}, {"_id": 0, "product_id": 1, "state": 1, "expiry": 1}).to_list(50)
     return {"format": "DutyConnect personal data v1", "generated_at": now().isoformat(), "profile": profile,
             "shifts": shifts, "subscriptions": [{**x, "expiry": x["expiry"].isoformat() if x.get("expiry") else None} for x in subs]}
@@ -891,6 +901,16 @@ async def startup():
     await db.rtdn_events.create_index("at", expireAfterSeconds=90 * 86400)
     # Deletion log outlives the longest backup so restores can re-apply deletions.
     await db.deletion_log.create_index("deleted_at", expireAfterSeconds=DELETION_LOG_DAYS * 86400)
+    await db.referrals.create_index("id", unique=True)
+    await db.referrals.create_index("friend_id", unique=True)
+    await db.referrals.create_index([("referrer_id", 1), ("created_at", -1)])
+    await db.users.create_index("referral_code", unique=True, partialFilterExpression={"referral_code": {"$type": "string"}})
+    # Admins are named in configuration only (never self-service).
+    admins = [e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()]
+    await db.users.update_many({"is_admin": True, "email": {"$nin": admins}}, {"$unset": {"is_admin": ""}})
+    if admins:
+        await db.users.update_many({"email": {"$in": admins}}, {"$set": {"is_admin": True}})
+    asyncio.create_task(referral_router.loop())
     if os.environ.get("ENVIRONMENT", "development") == "production":
         problems = production_config_problems()
         if problems:

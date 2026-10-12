@@ -96,3 +96,11 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Bed Watch / Constant Watch / PP (user-approved) restored as optional built-in presets (ids bed_watch / constant_watch / pp; shift-type chips wrap, colours and calculations unchanged). Hidden by default; toggle in Account → Shift templates (`users.specialist_presets`, synced via /api/me, in data download). Not counted as custom templates; shifts still count towards Free 3-active limit. Existing records always selectable/editable even when off.
 - PP (Payment Plus) = original name of shift/payments section; all payment features retained; not a duty type.
 - Tests: 167/167 backend serial (160 + 7 tests/test_specialist_presets.py). Targeted UI check pass.
+
+## Phase C — Referrals & ambassadors MVP (preview only, mocked Google Play)
+- backend/referrals.py: personal 8-char codes; apply at registration (optional field, invalid ignored) or /api/referrals/apply within 14 days & before first subscription; no own code, one referrer.
+- Qualify: first verified paid subscription → `paid`, qualifies_at = +30d +48h; then awaiting_approval if sub not voided and paid month ran, else cancelled. Checked on admin list, /referrals/me and hourly loop.
+- Admin (ADMIN_EMAILS env → users.is_admin): /api/admin/referrals (filter), approve (atomic, friend + referrer 1 free month; referrer subject to monthly cap → "capped"), cancel; /api/admin/members lookup + PATCH ambassador/referral_cap. Default cap 3, ambassador 10 (env).
+- Rewards (billing.grant_free_month): active auto-renewing subscriber → Google subscriptions:defer 30 days; else users.bonus_pro_until (stacking). refresh_plan treats bonus as Pro; voided RTDN marks sub voided.
+- App: Account → Refer a friend (app/referrals.tsx: code, share, add code, statuses, rules); Referral admin (app/admin-referrals.tsx) for admins; register referral field. Upgrade page shows UK reference prices when Play unavailable.
+- Tests: 178/178 backend serial (167 + 11 tests/test_referrals.py).

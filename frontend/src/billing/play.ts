@@ -44,6 +44,14 @@ export async function startBilling(onEntitlement: (e: Entitlement) => void, onEr
 export const FOUNDING_OFFER_ID = "founding";
 export type Prices = Record<PlanKey, { price: string; intro?: string }>;
 
+/** UK list prices shown when Google Play can't be reached (web preview, Expo Go, offline). Google Play's price always wins. */
+export function referencePrices(foundingEligible: boolean): Prices {
+  return {
+    monthly: { price: "£3.99", intro: foundingEligible ? "£2.99" : undefined },
+    annual: { price: "£34.99", intro: foundingEligible ? "£24.99" : undefined },
+  };
+}
+
 /** Prices and the founding offer exactly as Google Play returns them (nothing hard-coded). */
 export async function loadPrices(foundingEligible: boolean): Promise<Prices | null> {
   const m = iap();

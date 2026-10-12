@@ -103,6 +103,24 @@ class Google:
         r = await asyncio.to_thread(self._authed().post, url, json={}, timeout=20)
         r.raise_for_status()
 
+    async def defer(self, product: str, token: str, expiry: datetime, days: int):
+        """Move the next renewal date back (a free period for a paying subscriber). Google charges nothing for it."""
+        new = expiry + timedelta(days=days)
+        if MODE == "mock":
+            doc = await self.db.mock_play.find_one({"token": token})
+            items = doc["response"]["lineItems"]
+            for i in items:
+                if i.get("productId") == product:
+                    i["expiryTime"] = new.isoformat().replace("+00:00", "Z")
+            await self.db.mock_play.update_one({"token": token}, {"$set": {"response.lineItems": items}})
+            return
+        url = (f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE}"
+               f"/purchases/subscriptions/{product}/tokens/{token}:defer")
+        body = {"deferralInfo": {"expectedExpiryTimeMillis": str(int(expiry.timestamp() * 1000)),
+                                 "desiredExpiryTimeMillis": str(int(new.timestamp() * 1000))}}
+        r = await asyncio.to_thread(self._authed().post, url, json=body, timeout=20)
+        r.raise_for_status()
+
 
 class PurchaseIn(BaseModel):
     product_id: Literal["dutyconnect_pro_monthly", "dutyconnect_pro_annual"]
@@ -113,9 +131,14 @@ class RestoreIn(BaseModel):
     purchases: List[PurchaseIn] = Field(default_factory=list, max_length=20)
 
 
+def aware(d):
+    return d.replace(tzinfo=timezone.utc) if d and d.tzinfo is None else d
+
+
 def make_router(db, current_user, logger) -> APIRouter:
     google = Google(db)
     r = APIRouter(prefix="/api/billing")
+    hooks = {}  # "paid": called with the user id after a verified paying subscription is stored (referrals)
 
     async def apply_google_state(token: str, user_id: str | None):
         """Fetch Google's record and store it. Returns (subscription doc or None, error)."""
@@ -146,6 +169,8 @@ def make_router(db, current_user, logger) -> APIRouter:
         if g.get("acknowledgementState") == "ACKNOWLEDGEMENT_STATE_PENDING" and doc["state"] in PRO_STATES:
             await google.acknowledge(item["productId"], token)
         await refresh_plan(owner)
+        if doc["state"] in PRO_STATES and hooks.get("paid"):
+            await hooks["paid"](owner)
         return doc, None
 
     def grants_pro(s: dict) -> bool:
@@ -162,21 +187,38 @@ def make_router(db, current_user, logger) -> APIRouter:
         subs = await db.subscriptions.find({"user_id": uid}, {"_id": 0, "token_enc": 0}).to_list(50)
         active = [s for s in subs if grants_pro(s)]
         best = max(active or subs, key=lambda s: s.get("expiry") or now(), default=None)
-        plan = "pro" if active else "free"
+        user = await db.users.find_one({"id": uid}, {"_id": 0, "bonus_pro_until": 1}) or {}
+        bonus = aware(user.get("bonus_pro_until"))
+        bonus = bonus if bonus and bonus > now() else None  # free Pro months from referrals (no subscription needed)
+        plan = "pro" if active or bonus else "free"
         await db.users.update_one({"id": uid}, {"$set": {"plan": plan}})
-        return {"plan": plan, "sub": best}
+        return {"plan": plan, "sub": best if active or not bonus else None, "bonus": bonus}
+
+    async def grant_free_month(uid: str, days: int = 30) -> str:
+        """A referral reward. Paying subscriber: Google defers their next renewal (nothing charged for the
+        free period). Otherwise: free Pro on the account until a date, stacking with earlier rewards."""
+        for s in await db.subscriptions.find({"user_id": uid, "state": "SUBSCRIPTION_STATE_ACTIVE", "auto_renew": True,
+                                              "replaced_by": None}).to_list(10):
+            if grants_pro(s) and s.get("expiry"):
+                token = unseal(s["token_enc"])
+                await google.defer(s["product_id"], token, aware(s["expiry"]), days)
+                await apply_google_state(token, uid)
+                return "deferred"
+        user = await db.users.find_one({"id": uid}, {"_id": 0, "bonus_pro_until": 1}) or {}
+        start = max(aware(user.get("bonus_pro_until")) or now(), now())
+        await db.users.update_one({"id": uid}, {"$set": {"bonus_pro_until": start + timedelta(days=days)}})
+        await refresh_plan(uid)
+        return "bonus"
 
     async def summary(uid: str) -> dict:
         res = await refresh_plan(uid)
         s = res["sub"]
-        exp = s.get("expiry") if s else None
-        if exp and exp.tzinfo is None:
-            exp = exp.replace(tzinfo=timezone.utc)
+        exp = aware(s.get("expiry")) if s else res["bonus"]
         until = min(exp, now() + timedelta(days=PASS_DAYS)) if res["plan"] == "pro" and exp else now()
         return {"plan": res["plan"], "product_id": s and s["product_id"], "state": s and s["state"],
                 "expires_at": exp.isoformat() if exp else None, "will_renew": bool(s and s.get("auto_renew") and res["plan"] == "pro"),
                 "pass": sign_pass(uid, res["plan"], until), "pass_expires_at": until.isoformat(),
-                "account_ref": account_ref(uid), "mode": MODE, "founding_eligible": await founding_eligible(uid)}
+                "account_ref": account_ref(uid), "mode": MODE, "bonus_pro_until": res["bonus"].isoformat() if res["bonus"] else None, "founding_eligible": await founding_eligible(uid)}
 
     async def founding_eligible(uid: str) -> bool:
         """First FOUNDING_LIMIT paying subscribers who have never subscribed before. The app only requests
@@ -229,6 +271,9 @@ def make_router(db, current_user, logger) -> APIRouter:
             raise HTTPException(400, "Bad message")
         await db.rtdn_events.insert_one({"message_id": mid, "at": now()})
         n = event.get("subscriptionNotification") or event.get("voidedPurchaseNotification")
+        if event.get("voidedPurchaseNotification") and event.get("packageName") == PACKAGE:
+            # Refunded/charged back: remembered so a referral based on this payment never earns a reward.
+            await db.subscriptions.update_one({"token_hash": token_hash(n.get("purchaseToken", ""))}, {"$set": {"voided": True}})
         if n and n.get("purchaseToken") and event.get("packageName") == PACKAGE:
             # The notification is only a hint: state is always re-read from Google.
             _, err = await apply_google_state(n["purchaseToken"], None)
@@ -237,4 +282,6 @@ def make_router(db, current_user, logger) -> APIRouter:
         return {"ok": True}
 
     r.refresh_plan = refresh_plan  # used by account deletion / tests
+    r.grant_free_month = grant_free_month  # referral rewards
+    r.hooks = hooks
     return r

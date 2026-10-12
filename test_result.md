@@ -117,3 +117,7 @@
 - Backend 160/160 (145 prior + 15 tests/test_phase_ab.py; m4 test & m3c privacy test updated for approved Free/branding changes).
 - Free: 3 active/future shifts (server returns status "limit"; app keeps record `_held`), 7-day visible history, CSV/PDF Pro-only, 1 custom template (PATCH /me shift_templates, 403 pro_required_templates), free JSON GET /api/me/data-download (1 per 7 days, 429 with support text). Founding offer: founding_eligible in /billing/entitlement.
 - Reset main user before UI tests: $unset sync_device, last_data_download_at.
+
+## Phase C — main agent
+- Backend 178/178 serial (167 + 11 tests/test_referrals.py). Admins via ADMIN_EMAILS (delivered+t1@resend.dev is admin).
+- Frontend to test: Account rows account-referrals-row / account-admin-referrals-row; /referrals (referral-code, referral-share-button, referral-apply-input/button); /admin-referrals (admin-filter-*, admin-approve-<id>, admin-cancel-<id>, admin-member-email/find/ambassador/cap/cap-save); register-referral-input; upgrade page shows £3.99/£34.99 (founding £2.99/£24.99).

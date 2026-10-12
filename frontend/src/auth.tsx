@@ -16,6 +16,7 @@ export type User = {
   hourly_rate: number | null;
   shift_templates?: ShiftTemplate[];
   specialist_presets?: boolean;
+  is_admin?: boolean;
   notification_prefs: NotificationPrefs;
   plan: string;
   features: Record<string, boolean>;
@@ -36,7 +37,7 @@ type Ctx = {
   unlock: () => void;
   setBiometricEnabled: (v: boolean) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  register: (full_name: string, email: string, password: string) => Promise<void>;
+  register: (full_name: string, email: string, password: string, referral_code?: string) => Promise<void>;
   verifyEmail: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (patch: Record<string, unknown>) => Promise<User>;
@@ -150,8 +151,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const t = await request("/auth/login", { method: "POST", body: { email, password }, auth: false });
         await afterTokens(t);
       },
-      register: async (full_name, email, password) => {
-        await request("/auth/register", { method: "POST", body: { full_name, email, password }, auth: false });
+      register: async (full_name, email, password, referral_code) => {
+        await request("/auth/register", { method: "POST", body: { full_name, email, password, referral_code: referral_code || null }, auth: false });
       },
       verifyEmail: async (email, code) => {
         const t = await request("/auth/verify-email", { method: "POST", body: { email, code }, auth: false });

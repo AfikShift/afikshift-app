@@ -4,7 +4,7 @@ import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useEntitlement } from "@/src/billing/entitlement";
-import { PRODUCTS, PlanKey, Prices, billingAvailable, buy, loadPrices, openManageSubscription, restorePurchases } from "@/src/billing/play";
+import { PRODUCTS, PlanKey, Prices, billingAvailable, buy, loadPrices, openManageSubscription, referencePrices, restorePurchases } from "@/src/billing/play";
 import { Segmented } from "@/src/components/segmented";
 import { StackHeader } from "@/src/components/stack-header";
 import { useToast } from "@/src/components/toast";
@@ -36,7 +36,7 @@ export default function Upgrade() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    loadPrices(!!ent?.founding_eligible).then(setPrices);
+    loadPrices(!!ent?.founding_eligible).then((p) => setPrices(p ?? referencePrices(!!ent?.founding_eligible)));
   }, [ent?.founding_eligible]);
 
   const subscribe = async () => {
@@ -126,7 +126,7 @@ export default function Upgrade() {
               loading={busy}
               onPress={subscribe}
             />
-            {!prices && <Text style={styles.note}>Prices are shown by Google Play in your local currency.</Text>}
+            <Text style={styles.note}>UK prices shown. Google Play confirms the final price in your local currency before you pay.</Text>
             {!billingAvailable && (
               <Text style={styles.note} testID="upgrade-unavailable-note">
                 Subscriptions are available in the Google Play version of DutyConnect (not in Expo Go or the web preview).

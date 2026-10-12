@@ -20,6 +20,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [consent, setConsent] = useState(false);
+  const [referral, setReferral] = useState("");
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(false);
 
@@ -35,7 +36,7 @@ export default function Register() {
     setLoading(true);
     try {
       const em = email.trim().toLowerCase();
-      await register(name.trim(), em, password);
+      await register(name.trim(), em, password, referral.trim().toUpperCase());
       router.push({ pathname: "/verify", params: { email: em } });
     } catch (err) {
       setErrors({ form: (err as Error).message });
@@ -83,6 +84,15 @@ export default function Register() {
         placeholder="At least 10 characters"
         error={errors.password}
         hint="10+ characters with letters and numbers."
+      />
+      <TextField
+        testID="register-referral-input"
+        label="Referral code (optional)"
+        value={referral}
+        onChangeText={setReferral}
+        autoCapitalize="characters"
+        placeholder="e.g. 7KQ2MXRP"
+        hint="Got a code from a friend? You'll both get a free month of Pro after your first paid month."
       />
       <Pressable testID="register-consent-checkbox" onPress={() => setConsent((v) => !v)} style={styles.consent} hitSlop={4}>
         <View style={[styles.box, consent && { backgroundColor: colors.brandSecondary, borderColor: colors.brandSecondary }]}>

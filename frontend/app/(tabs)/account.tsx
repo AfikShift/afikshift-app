@@ -59,7 +59,11 @@ export default function Account() {
         <SectionTitle>Profile</SectionTitle>
         <Card style={styles.group}>
           <ListRow testID="account-edit-profile-row" icon="person-outline" title="Personal details" value={user?.professional_category} onPress={() => router.push("/profile")} />
-          <ListRow testID="account-rate-row" icon="cash-outline" title="Default hourly rate" value={rate} onPress={() => router.push("/profile")} last />
+          <ListRow testID="account-rate-row" icon="cash-outline" title="Default hourly rate" value={rate} onPress={() => router.push("/profile")} />
+          <ListRow testID="account-referrals-row" icon="gift-outline" title="Refer a friend" value="Free Pro months" onPress={() => router.push("/referrals")} last={!user?.is_admin} />
+          {user?.is_admin && (
+            <ListRow testID="account-admin-referrals-row" icon="settings-outline" title="Referral admin" value="Approve rewards" onPress={() => router.push("/admin-referrals")} last />
+          )}
         </Card>
 
         <SectionTitle>Security & privacy</SectionTitle>
