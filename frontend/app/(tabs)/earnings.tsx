@@ -44,7 +44,9 @@ export default function Earnings() {
   const [refreshing, setRefreshing] = useState(false);
   const range = isPro ? periodRange(kind, anchor) : periodRange("week", toISODate(new Date()));
   const t = useMemo(() => summarise(shifts, range.from, range.to), [shifts, range.from, range.to]);
-  const paidPct = t.estimated > 0 ? Math.min(t.received / t.estimated, 1) : 0;
+  // For monthly-paid workers: what this period's shifts should pay (worked so far + booked still to work).
+  const expected = t.estimated + t.projected;
+  const isMonth = isPro && kind === "month";
 
   return (
     <View style={styles.root} testID="earnings-screen">
@@ -97,33 +99,28 @@ export default function Earnings() {
         <ProvisionalBanner count={t.provisional} testID="earnings-provisional-banner" />
 
         <View style={styles.hero} testID="earnings-summary-card">
-          <Text style={styles.heroLabel}>ESTIMATED GROSS</Text>
+          <Text style={styles.heroLabel} testID="earnings-hero-label">
+            {isMonth ? `EXPECTED PAY · END OF ${range.label.toUpperCase()}` : `EXPECTED PAY · ${range.label.toUpperCase()}`}
+          </Text>
           <Text style={styles.heroValue} testID="earnings-estimated">
-            {money(t.estimated, cur)}
+            {money(expected, cur)}
           </Text>
-          <View style={styles.bar}>
-            <View style={[styles.barFill, { width: `${paidPct * 100}%` }]} />
-          </View>
-          <Text style={styles.heroSub}>
-            {money(t.received, cur)} received · {money(t.outstanding, cur)} not yet paid
-          </Text>
+          <Text style={styles.heroSub}>Before tax · {money(t.estimated, cur)} worked so far + {money(t.projected, cur)} booked</Text>
           {user?.tax_rate != null && (
-            <Text style={styles.heroSub} testID="earnings-after-tax">
-              After {user.tax_rate}% tax: {money(afterTax(t.estimated, user.tax_rate), cur)} estimated · {money(afterTax(t.outstanding, user.tax_rate), cur)} not yet paid
+            <Text style={styles.heroTax} testID="earnings-after-tax">
+              After {user.tax_rate}% tax: {money(afterTax(expected, user.tax_rate), cur)}
             </Text>
           )}
         </View>
 
         <View style={styles.card}>
           <View style={styles.stats}>
-            <Stat testID="earnings-received" label="Received" value={money(t.received, cur)} tone={colors.success} />
-            <Stat testID="earnings-outstanding" label="Not yet paid (est.)" value={money(t.outstanding, cur)} tone={t.outstanding > 0 ? colors.warning : undefined} />
+            <Stat testID="earnings-worked" label="Worked so far" value={money(t.estimated, cur)} />
+            <Stat testID="earnings-projected" label="Booked still to work" value={money(t.projected, cur)} />
             <Stat testID="earnings-completed" label="Completed shifts" value={String(t.completed)} />
+            <Stat testID="earnings-booked" label="Booked shifts" value={String(t.booked)} />
             <Stat testID="earnings-hours" label="Completed hours" value={t.hours.toFixed(2)} />
           </View>
-          <Text style={styles.projected} testID="earnings-booked">
-            {t.booked} booked · {money(t.projected, cur)} projected
-          </Text>
           {t.missingRate && (
             <Text style={styles.warnText} testID="earnings-missing-rate">
               Some completed shifts have no hourly rate, so they aren&apos;t included in estimates.
@@ -142,7 +139,7 @@ export default function Earnings() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.dutyName}>{DUTY_LABEL[d.duty]}</Text>
                   <Text style={styles.dutySub}>
-                    {d.count} shift{d.count === 1 ? "" : "s"} · {formatHours(d.hours)} · {money(d.received, cur)} received
+                    {d.count} shift{d.count === 1 ? "" : "s"} · {formatHours(d.hours)}
                   </Text>
                 </View>
                 <Text style={styles.dutyValue}>{money(d.estimated, cur)}</Text>
@@ -155,7 +152,7 @@ export default function Earnings() {
         )}
 
         <Button testID="earnings-export-button" label="Export report" icon="share-outline" onPress={() => setExporting(true)} />
-        <Text style={styles.disclaimer}>Estimates only — not official payroll records. Earned figures include completed shifts only; booked shifts are projected.</Text>
+        <Text style={styles.disclaimer}>Estimates only — not official payroll records. Expected pay adds completed shifts and booked shifts in this period; check your payslip for the final amount.</Text>
       </ScrollView>
       <ExportSheet visible={exporting} onClose={() => setExporting(false)} shifts={shifts} label={range.label} from={range.from} to={range.to} />
     </View>
@@ -171,16 +168,14 @@ const useStyles = makeStyles((c) => ({
   hero: { backgroundColor: c.hero, borderRadius: radius.lg, padding: spacing.xl },
   heroLabel: { fontFamily: fonts.bold, fontSize: type.sm, color: c.heroAccent, letterSpacing: 1.2 },
   heroValue: { fontFamily: fonts.extrabold, fontSize: type.display, color: c.onHero, marginTop: spacing.sm },
-  bar: { height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.15)", marginTop: spacing.lg, overflow: "hidden" },
-  barFill: { height: 8, borderRadius: 4, backgroundColor: c.heroAccent },
   heroSub: { fontFamily: fonts.medium, fontSize: type.base, color: c.onHeroMuted, marginTop: spacing.sm },
+  heroTax: { fontFamily: fonts.bold, fontSize: type.lg, color: c.heroAccent, marginTop: spacing.sm },
   card: { backgroundColor: c.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: c.border },
   cardTitle: { fontFamily: fonts.bold, fontSize: type.lg, color: c.onSurface, marginBottom: spacing.sm },
   stats: { flexDirection: "row", flexWrap: "wrap", rowGap: spacing.lg },
   stat: { width: "50%" },
   statValue: { fontFamily: fonts.bold, fontSize: type.xl, color: c.onSurface },
   statLabel: { fontFamily: fonts.medium, fontSize: type.sm, color: c.muted, marginTop: 2 },
-  projected: { fontFamily: fonts.semibold, fontSize: type.sm + 1, color: c.onSurfaceSecondary, marginTop: spacing.lg },
   warnText: { fontFamily: fonts.medium, fontSize: type.sm, color: c.warning, marginTop: spacing.sm },
   dutyRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: c.divider },
   dot: { width: 10, height: 10, borderRadius: 5 },
