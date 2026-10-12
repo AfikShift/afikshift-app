@@ -15,6 +15,8 @@ import { Button, SectionTitle, TextField } from "@/src/components/ui";
 import { currencySymbol, money } from "@/src/format";
 import {
   DUTY_LABEL,
+  BUILTIN_TYPES,
+  getCustomTemplates,
   DutyType,
   ShiftData,
   ShiftPeriod,
@@ -29,7 +31,8 @@ import {
   toISODate,
   validateShift,
 } from "@/src/shifts/calc";
-import { useShifts } from "@/src/shifts/provider";
+import { FREE_ACTIVE_SHIFTS, isActiveFuture, useShifts } from "@/src/shifts/provider";
+import { ProPrompt } from "@/src/components/pro-prompt";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 const PRESETS: Record<ShiftPeriod, [string, string]> = { day: ["08:00", "20:00"], night: ["20:00", "08:00"] };
@@ -38,7 +41,7 @@ const BREAKS = ["0", "30", "45", "60"] as const;
 export default function ShiftForm() {
   const params = useLocalSearchParams<{ id?: string; duplicate?: string; date?: string }>();
   const { user } = useAuth();
-  const { byId, create, update, shifts } = useShifts();
+  const { byId, create, update, shifts, atShiftLimit } = useShifts();
   const router = useRouter();
   const toast = useToast();
   const styles = useStyles();
@@ -68,7 +71,7 @@ export default function ShiftForm() {
     }
     return {
       officer_name: user?.full_name ?? "",
-      duty_type: "bed_watch",
+      duty_type: "standard",
       shift_period: "day",
       date: params.date ?? toISODate(new Date()),
       start_time: PRESETS.day[0],
@@ -100,6 +103,9 @@ export default function ShiftForm() {
     if (rateNum != null && (!isFinite(rateNum) || rateNum < 0 || rateNum > 500)) e.hourly_rate = "Enter a rate between 0 and 500.";
     setErrors(e);
     if (Object.keys(e).length) return toast("Please check the highlighted fields", "error");
+    // Free limit: saving must not add a 4th active/future shift (editing an already-active one is fine).
+    if (atShiftLimit && isActiveFuture({ ...data, deleted: false }) && !(editing && isActiveFuture(editing)))
+      return toast(`Free includes ${FREE_ACTIVE_SHIFTS} upcoming shifts. Complete, cancel or delete one, or upgrade to Pro.`, "info");
     setSaving(true);
     try {
       // Editing never touches payments: the store keeps the latest payment list (incl. other devices').
@@ -116,17 +122,35 @@ export default function ShiftForm() {
 
   const title = editing ? "Edit shift" : params.duplicate ? "Duplicate shift" : "Add shift";
 
+  if (!editing && atShiftLimit && f.status === "booked")
+    return (
+      <View style={styles.root} testID="shift-limit-screen">
+        <StackHeader title={title} />
+        <View style={[styles.content, { gap: spacing.lg }]}>
+          <Text style={styles.limitText}>
+            You have {FREE_ACTIVE_SHIFTS} upcoming shifts – the most DutyConnect Free can hold. Your shifts are safe. Complete, cancel or delete one to add another,
+            or upgrade for unlimited shifts.
+          </Text>
+          <ProPrompt testID="shift-limit-pro-prompt" title="Unlimited shifts with Pro" body="Plus full history, multiple payments, reports and sync on all devices." />
+        </View>
+      </View>
+    );
+
   return (
     <View style={styles.root} testID="shift-form-screen">
       <StackHeader title={title} />
       <KeyboardAwareScrollView bottomOffset={140} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <PrivacyNotice />
-        <SectionTitle>Duty</SectionTitle>
+        <SectionTitle>Shift type</SectionTitle>
         <Segmented<DutyType>
           testPrefix="shift-duty"
           value={f.duty_type}
-          onChange={(v) => set("duty_type", v)}
-          options={(Object.keys(DUTY_LABEL) as DutyType[]).map((k) => ({ value: k, label: DUTY_LABEL[k] }))}
+          onChange={(v) => {
+            set("duty_type", v);
+            const t = getCustomTemplates().find((x) => x.id === v); // a template pre-fills its times
+            if (t?.start_time && t.end_time) setF((p) => ({ ...p, duty_type: v, start_time: t.start_time!, end_time: t.end_time!, break_minutes: t.break_minutes ?? p.break_minutes }));
+          }}
+          options={[...BUILTIN_TYPES, ...getCustomTemplates(), ...(typeOptionsExtra(f.duty_type))].map((k) => ({ value: k.id, label: k.label }))}
         />
         <View style={{ height: spacing.md }} />
         <Segmented<ShiftPeriod>
@@ -203,7 +227,7 @@ export default function ShiftForm() {
 
         <SectionTitle>Details</SectionTitle>
         <View style={styles.gap}>
-          <TextField testID="shift-officer-input" label="Officer name" value={f.officer_name} onChangeText={(v) => set("officer_name", v)} error={errors.officer_name} />
+          <TextField testID="shift-officer-input" label="Your name" value={f.officer_name} onChangeText={(v) => set("officer_name", v)} error={errors.officer_name} />
           <TextField
             testID="shift-location-input"
             label="General location (optional)"
@@ -212,11 +236,11 @@ export default function ShiftForm() {
             placeholder="e.g. Local hospital"
             maxLength={60}
             error={errors.location}
-            hint="General description only. Never enter prisoner names, numbers, health or security details."
+            hint="General description only. Never enter other people's names, ID numbers, health or security details."
           />
           <TextField
             testID="shift-rate-input"
-            label="Hourly PP rate for this shift"
+            label="Hourly rate for this shift"
             prefix={currencySymbol(user?.currency)}
             keyboardType="decimal-pad"
             value={rateText}
@@ -275,7 +299,13 @@ export default function ShiftForm() {
   );
 }
 
+/** Keep a legacy/removed type selectable on records that already use it (nothing is changed silently). */
+function typeOptionsExtra(id: string) {
+  return [...BUILTIN_TYPES, ...getCustomTemplates()].some((t) => t.id === id) ? [] : [{ id, label: DUTY_LABEL[id] }];
+}
+
 const useStyles = makeStyles((c) => ({
+  limitText: { fontFamily: fonts.medium, fontSize: type.base, color: c.onSurface, lineHeight: 22 },
   root: { flex: 1, backgroundColor: c.surface },
   content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
   gap: { gap: spacing.lg },

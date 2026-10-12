@@ -8,7 +8,7 @@ import { Button } from "@/src/components/ui";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 const POINTS: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }[] = [
-  { icon: "calendar-outline", text: "Record Bed Watch, Constant Watch & PP duties in seconds" },
+  { icon: "calendar-outline", text: "Plan shifts, overtime and extra shifts in seconds" },
   { icon: "cash-outline", text: "See estimated earnings and what you're still owed" },
   { icon: "cloud-offline-outline", text: "Works offline — syncs when you're back online" },
 ];
@@ -28,7 +28,7 @@ export default function Welcome() {
           DutyConnect
         </Animated.Text>
         <Animated.Text entering={FadeInDown.delay(140).duration(500)} style={styles.tagline}>
-          Stay Connected. Stay Organised.
+          Know your shifts. Track your earnings. Stay in control.
         </Animated.Text>
       </View>
       <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
@@ -46,7 +46,7 @@ export default function Welcome() {
           <Button testID="welcome-create-account-button" label="Create account" onPress={() => router.push("/register")} />
           <Button testID="welcome-sign-in-button" label="Sign in" variant="secondary" onPress={() => router.push("/login")} />
         </View>
-        <Text style={styles.legal}>Personal records only. Never enter prisoner or confidential employer information.</Text>
+        <Text style={styles.legal}>Personal records only. Never enter other people's or confidential employer information.</Text>
       </View>
     </View>
   );

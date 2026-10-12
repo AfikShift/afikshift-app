@@ -4,7 +4,7 @@ import { ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useEntitlement } from "@/src/billing/entitlement";
-import { PRODUCTS, PlanKey, billingAvailable, buy, loadPrices, openManageSubscription, restorePurchases } from "@/src/billing/play";
+import { PRODUCTS, PlanKey, Prices, billingAvailable, buy, loadPrices, openManageSubscription, restorePurchases } from "@/src/billing/play";
 import { Segmented } from "@/src/components/segmented";
 import { StackHeader } from "@/src/components/stack-header";
 import { useToast } from "@/src/components/toast";
@@ -13,15 +13,17 @@ import { endDate } from "@/src/format";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 const ROWS: [string, boolean | string, boolean | string][] = [
-  ["Shift creation, editing & calendar", true, true],
-  ["Offline recording & encrypted storage", true, true],
-  ["Basic estimated earnings", true, true],
-  ["Shift history in the app", "Last 30 days", "Unlimited"],
+  ["Shift calendar & offline recording", true, true],
+  ["Upcoming shifts", "Up to 3", "Unlimited"],
+  ["History in the app", "Last 7 days", "Unlimited"],
   ["Payments per shift", "One", "Multiple"],
-  ["Earnings dashboard & breakdowns", false, true],
-  ["Reports", "CSV of all records", "CSV + PDF, any period"],
-  ["Cloud sync & backup", "One phone", "All your devices"],
-];
+  ["Earnings", "This week", "Full dashboard"],
+  ["Outstanding & overdue payments", false, true],
+  ["Custom shift templates", "One", "Unlimited"],
+  ["CSV & PDF reports", false, true],
+  ["Sync & backup", "One phone", "All devices"],
+  ["Download my data (JSON)", true, true],
+]
 
 export default function Upgrade() {
   const { isPro, ent, apply } = useEntitlement();
@@ -30,18 +32,18 @@ export default function Upgrade() {
   const styles = useStyles();
   const { colors } = useTheme();
   const [plan, setPlan] = useState<PlanKey>("annual");
-  const [prices, setPrices] = useState({ monthly: "£2.99", annual: "£24.99" });
+  const [prices, setPrices] = useState<Prices | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    loadPrices().then(setPrices);
-  }, []);
+    loadPrices(!!ent?.founding_eligible).then(setPrices);
+  }, [ent?.founding_eligible]);
 
   const subscribe = async () => {
     if (!ent) return toast("Connect to the internet to subscribe", "error");
     setBusy(true);
     try {
-      await buy(plan, ent.account_ref); // Pro is granted only after the server verifies it with Google
+      await buy(plan, ent.account_ref, !!ent.founding_eligible); // Pro is granted only after the server verifies it with Google
     } catch (e) {
       toast((e as Error).message, "info");
     } finally {
@@ -68,7 +70,7 @@ export default function Upgrade() {
         <View style={styles.hero}>
           <Text style={styles.heroLabel}>{isPro ? "YOUR PLAN" : "UPGRADE"}</Text>
           <Text style={styles.heroTitle} testID="upgrade-plan-title">
-            {isPro ? "You're on Pro" : "Everything for your PP duties"}
+            {isPro ? "You're on Pro" : "Stay in control of every shift and payment"}
           </Text>
           <Text style={styles.heroBody}>
             {isPro
@@ -108,11 +110,23 @@ export default function Upgrade() {
               value={plan}
               onChange={setPlan}
               options={[
-                { value: "monthly", label: `Monthly · ${prices.monthly}` },
-                { value: "annual", label: `Annual · ${prices.annual}` },
+                { value: "monthly", label: prices ? `Monthly · ${prices.monthly.price}` : "Monthly" },
+                { value: "annual", label: prices ? `Annual · ${prices.annual.price}` : "Annual" },
               ]}
             />
-            <Button testID="upgrade-subscribe-button" label={`Subscribe – ${prices[plan]} per ${plan === "annual" ? "year" : "month"}`} loading={busy} onPress={subscribe} />
+            {prices?.[plan].intro && (
+              <Text style={styles.offer} testID="upgrade-founding-offer">
+                Founding member price: {prices[plan].intro} for the first 12 months, then {prices[plan].price} per {plan === "annual" ? "year" : "month"}. Google Play
+                will show the exact terms before you confirm.
+              </Text>
+            )}
+            <Button
+              testID="upgrade-subscribe-button"
+              label={prices ? `Subscribe – ${prices[plan].intro ?? prices[plan].price} per ${plan === "annual" ? "year" : "month"}` : "Subscribe"}
+              loading={busy}
+              onPress={subscribe}
+            />
+            {!prices && <Text style={styles.note}>Prices are shown by Google Play in your local currency.</Text>}
             {!billingAvailable && (
               <Text style={styles.note} testID="upgrade-unavailable-note">
                 Subscriptions are available in the Google Play version of DutyConnect (not in Expo Go or the web preview).
@@ -146,5 +160,6 @@ const useStyles = makeStyles((c) => ({
   head: { fontFamily: fonts.bold, color: c.onSurfaceSecondary },
   cellBox: { flex: 1, alignItems: "flex-start" },
   cellSmall: { fontFamily: fonts.medium, fontSize: type.sm, color: c.onSurfaceSecondary },
+  offer: { fontFamily: fonts.semibold, fontSize: type.sm + 1, color: c.onSurface, backgroundColor: c.brandTertiary, borderRadius: radius.md, padding: spacing.md },
   note: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, lineHeight: 18 },
 }));

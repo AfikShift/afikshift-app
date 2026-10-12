@@ -86,3 +86,8 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - App: expo-iap (dev build only), app/upgrade.tsx, src/billing/{entitlement.tsx,play.ts}, ProPrompt, Account subscription rows (status, manage, restore).
 - Tests: 145/145 backend serial (122 + 23 tests/test_m4_billing.py); frontend iteration_7 pass. Docs: docs/BILLING.md.
 - Stage B (needs approval): Play Console, products, service account, Pub/Sub RTDN + OIDC verification, permanent package id, signed build, sandbox purchases.
+
+## Phases A + B — DONE (preview only; Phase C referrals NOT started)
+- A: neutral branding (tagline "Know your shifts. Track your earnings. Stay in control."), no prison/HMPPS/PP wording in UI, emails, reports, legal pages, docs; built-in shift types standard/overtime/extra/other; legacy bed_watch/constant_watch still valid (records unchanged); custom templates (users.shift_templates, app/templates.tsx); legacy categories migrated at startup.
+- B: Free = 3 active/future shifts (server "limit" status, app keeps `_held` record, auto-retries), 7-day visible history (provider filter; allShifts for downloads), 1 payment/shift, current-week earnings, 1 template, CSV+PDF Pro-only, free JSON GET /api/me/data-download (1 per 7 days; support fallback). Pro £3.99/£34.99 configured in Play (no hard-coded prices); founding offer id "founding" for first 200 new subscribers (server founding_eligible).
+- Tests: 160/160 backend serial (145 + 15 tests/test_phase_ab.py); frontend iterations 8–9 pass.

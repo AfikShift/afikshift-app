@@ -58,6 +58,7 @@ function AppStack() {
         <Stack.Screen name="shift-form" options={{ presentation: "card" }} />
         <Stack.Screen name="recently-deleted" options={{ presentation: "card" }} />
         <Stack.Screen name="upgrade" options={{ presentation: "card" }} />
+        <Stack.Screen name="templates" options={{ presentation: "card" }} />
       </Stack>
       {status === "signedIn" && locked && (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>

@@ -6,8 +6,16 @@ Nothing below has been done yet; each step needs your approval.
 ## 1. Products to create (Play Console → Monetise → Products → Subscriptions)
 | Product ID (must match exactly) | Base plan | Price | Renewal | Trial |
 |---|---|---|---|---|
-| `dutyconnect_pro_monthly` | `monthly` (auto-renewing, 1 month) | £2.99 | Monthly | None |
-| `dutyconnect_pro_annual` | `annual` (auto-renewing, 1 year) | £24.99 | Yearly | None |
+| `dutyconnect_pro_monthly` | `monthly` (auto-renewing, 1 month) | £3.99 | Monthly | None |
+| `dutyconnect_pro_annual` | `annual` (auto-renewing, 1 year) | £34.99 | Yearly | None |
+
+**Founding-member offer** (add to each base plan → *Add offer*): offer ID **`founding`**, eligibility
+**Developer determined**, phase **Discounted recurring payment** – monthly plan: £2.99 for **12** billing periods;
+annual plan: £24.99 for **1** billing period. After that Google automatically charges the standard price and shows the
+required wording at checkout. The server only lets the app request this offer for accounts that have never subscribed,
+while fewer than 200 accounts have used it (`FOUNDING_MEMBER_LIMIT`). ⚠️ Confirm in Play Console that a 12-period
+discounted recurring phase is accepted for the monthly plan before launch; if not, use the longest allowed and update
+the in-app wording (it is taken from Google's returned offer, so no code change is needed for prices).
 Recommended settings: grace period **7 days**, account hold **enabled** (up to 30 days), resubscribe **allowed**,
 no introductory offers. Let Play convert prices for other countries.
 Products can only be created after a build with the billing permission has been uploaded to a testing track

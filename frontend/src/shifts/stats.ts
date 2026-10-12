@@ -17,7 +17,7 @@ export function summarise(shifts: LocalShift[], from?: string, to?: string) {
   const done = inRange.filter((s) => s.status === "completed");
   const booked = inRange.filter((s) => s.status === "booked");
   const sum = (arr: LocalShift[], f: (s: LocalShift) => number | null | undefined) => arr.reduce((a, s) => a + pence(f(s)), 0) / 100;
-  const duties: DutyType[] = ["bed_watch", "constant_watch", "other"];
+  const duties: DutyType[] = [...new Set(done.map((s) => s.duty_type))].sort();
   return {
     shifts: inRange.length,
     completed: done.length,

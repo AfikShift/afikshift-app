@@ -112,3 +112,8 @@
 ## M4 Stage A — main agent
 - Backend 145/145 serial (122 + 23 in tests/test_m4_billing.py, mocked Google Play API via db.mock_play, BILLING_MODE=mock).
 - Note: backend tests sync the main user without X-Device-Id, which sets users.sync_device="unknown"; unset it before UI testing ($unset sync_device) or the web app will show the "Another phone is your sync phone" banner.
+
+## Phases A+B — main agent
+- Backend 160/160 (145 prior + 15 tests/test_phase_ab.py; m4 test & m3c privacy test updated for approved Free/branding changes).
+- Free: 3 active/future shifts (server returns status "limit"; app keeps record `_held`), 7-day visible history, CSV/PDF Pro-only, 1 custom template (PATCH /me shift_templates, 403 pro_required_templates), free JSON GET /api/me/data-download (1 per 7 days, 429 with support text). Founding offer: founding_eligible in /billing/entitlement.
+- Reset main user before UI tests: $unset sync_device, last_data_download_at.

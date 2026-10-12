@@ -143,7 +143,7 @@ def _code_template(title: str, intro: str, code: str, name: str, where: str = "i
         '<table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;'
         'border-radius:12px"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#111827">'
         f'<p style="font-size:18px;font-weight:bold;color:#0A192F;margin:0 0 4px">{escape(EMAIL_FROM_NAME)}</p>'
-        '<p style="font-size:12px;color:#6B7280;margin:0 0 20px">Stay Connected. Stay Organised.</p>'
+        '<p style="font-size:12px;color:#6B7280;margin:0 0 20px">Know your shifts. Track your earnings. Stay in control.</p>'
         f'<p style="font-size:16px;font-weight:bold;margin:0 0 8px">{escape(title)}</p>'
         f'<p style="font-size:14px;margin:0 0 16px">Hi {escape(name)}, {escape(intro)}</p>'
         f'<p style="font-size:32px;letter-spacing:8px;font-weight:bold;color:#008080;margin:0 0 16px">{escape(code)}</p>'

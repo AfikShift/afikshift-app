@@ -34,7 +34,7 @@ export default function Login() {
   };
 
   return (
-    <AuthShell title="Welcome back" subtitle="Sign in to manage your PP shifts." testID="login-screen">
+    <AuthShell title="Welcome back" subtitle="Sign in to manage your shifts and earnings." testID="login-screen">
       <TextField
         testID="login-email-input"
         label="Email"

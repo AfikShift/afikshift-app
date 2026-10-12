@@ -12,6 +12,8 @@ import { Card, ListRow, SectionTitle } from "@/src/components/ui";
 import { currencySymbol, endDate, initials } from "@/src/format";
 import { useShifts } from "@/src/shifts/provider";
 import { useEntitlement } from "@/src/billing/entitlement";
+import { request } from "@/src/api";
+import { shareJson } from "@/src/shifts/report";
 import { openManageSubscription, restorePurchases } from "@/src/billing/play";
 
 /** Public pages (no login needed); the host comes from configuration. */
@@ -57,12 +59,24 @@ export default function Account() {
         <SectionTitle>Profile</SectionTitle>
         <Card style={styles.group}>
           <ListRow testID="account-edit-profile-row" icon="person-outline" title="Personal details" value={user?.professional_category} onPress={() => router.push("/profile")} />
-          <ListRow testID="account-rate-row" icon="cash-outline" title="Hourly PP rate" value={rate} onPress={() => router.push("/profile")} last />
+          <ListRow testID="account-rate-row" icon="cash-outline" title="Default hourly rate" value={rate} onPress={() => router.push("/profile")} last />
         </Card>
 
         <SectionTitle>Security & privacy</SectionTitle>
         <Card style={styles.group}>
           <ListRow testID="account-security-row" icon="shield-checkmark-outline" title="Security" value="Password, biometrics" onPress={() => router.push("/security")} />
+          <ListRow testID="account-templates-row" icon="albums-outline" title="Shift templates" value={String(user?.shift_templates?.length ?? 0)} onPress={() => router.push("/templates")} />
+          <ListRow
+            testID="account-data-download-row"
+            icon="cloud-download-outline"
+            title="Download my data"
+            value="JSON · free"
+            onPress={() =>
+              request("/me/data-download")
+                .then(shareJson)
+                .catch((e) => toast((e as Error).message, "info"))
+            }
+          />
           <ListRow testID="account-deleted-row" icon="trash-bin-outline" title="Recently deleted" value={deleted.length ? String(deleted.length) : "90 days"} onPress={() => router.push("/recently-deleted")} />
           <ListRow
             testID="account-export-row"
@@ -111,7 +125,7 @@ export default function Account() {
           <ListRow testID="account-signout-row" icon="log-out-outline" title="Sign out" danger onPress={logout} last right={<View />} />
         </Card>
 
-        <Text style={styles.footer}>DutyConnect · Stay Connected. Stay Organised.{"\n"}Figures are estimates, not official payroll records.</Text>
+        <Text style={styles.footer}>DutyConnect · Know your shifts. Track your earnings. Stay in control.{"\n"}Figures are estimates, not official payroll records.</Text>
       </ScrollView>
       <ExportSheet visible={exporting} onClose={() => setExporting(false)} shifts={shifts} label="All records" />
     </View>

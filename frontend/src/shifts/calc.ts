@@ -1,5 +1,6 @@
 // Pure shift calculations — shared by the form, dashboard and calendar.
-export type DutyType = "bed_watch" | "constant_watch" | "other";
+/** Built-in ("standard", "overtime", "extra", "other"), legacy ("bed_watch", "constant_watch") or a custom template id. */
+export type DutyType = string;
 export type ShiftPeriod = "day" | "night";
 export type ShiftStatus = "booked" | "completed" | "cancelled";
 export type PaymentStatus = "pending" | "partially_paid" | "paid";
@@ -108,7 +109,7 @@ export function validatePayment(amount: number, date: string, note: string): Rec
   if (!isValidDate(date)) e.date = "Enter a valid date (YYYY-MM-DD).";
   else if (date > addDays(toISODate(new Date()), 1)) e.date = "Payment date can't be in the future.";
   if (note.length > 40) e.note = "Keep the note under 40 characters.";
-  if (isSensitive(note)) e.note = "Don't enter prisoner details or operational information.";
+  if (isSensitive(note)) e.note = "Don't enter other people's personal details or confidential workplace information.";
   return e;
 }
 
@@ -116,11 +117,28 @@ export function isSensitive(v: string) {
   return PRISONER_NO_RE.test(v) || SENSITIVE_WORDS_RE.test(v);
 }
 
-export const DUTY_LABEL: Record<DutyType, string> = {
-  bed_watch: "Bed Watch",
-  constant_watch: "Constant Watch",
-  other: "Other PP",
-};
+export type ShiftTemplate = { id: string; label: string; start_time?: string | null; end_time?: string | null; break_minutes?: number };
+export const BUILTIN_TYPES: { id: string; label: string }[] = [
+  { id: "standard", label: "Standard shift" },
+  { id: "overtime", label: "Overtime" },
+  { id: "extra", label: "Extra shift" },
+  { id: "other", label: "Other" },
+];
+// Types used by records created before shift types became configurable (kept so no record changes).
+const LEGACY_LABEL: Record<string, string> = { bed_watch: "Bed Watch", constant_watch: "Constant Watch" };
+let customTemplates: ShiftTemplate[] = [];
+/** Called when the profile loads so labels everywhere (cards, reports) use the user's own names. */
+export function setCustomTemplates(t: ShiftTemplate[] | undefined) {
+  customTemplates = t ?? [];
+}
+export function getCustomTemplates() {
+  return customTemplates;
+}
+export function dutyLabel(id: string) {
+  return customTemplates.find((t) => t.id === id)?.label ?? BUILTIN_TYPES.find((t) => t.id === id)?.label ?? LEGACY_LABEL[id] ?? "Other";
+}
+/** Proxy so existing DUTY_LABEL[id] lookups resolve built-in, legacy and custom names. */
+export const DUTY_LABEL: Record<string, string> = new Proxy({}, { get: (_t, id: string) => dutyLabel(id) });
 export const STATUS_LABEL: Record<ShiftStatus, string> = { booked: "Booked", completed: "Completed", cancelled: "Cancelled" };
 export const PAYMENT_LABEL: Record<PaymentStatus, string> = { pending: "Pending", partially_paid: "Partially paid", paid: "Paid" };
 
@@ -171,11 +189,11 @@ export function validateShift(s: ShiftData): Record<string, string> {
   if (!Number.isInteger(s.break_minutes) || s.break_minutes < 0 || s.break_minutes > 720) e.break_minutes = "Break must be 0–720 minutes.";
   if (s.location.length > 60) e.location = "Keep the location under 60 characters.";
   if (PRISONER_NO_RE.test(s.location) || SENSITIVE_WORDS_RE.test(s.location))
-    e.location = "Don't enter prisoner details, cell/wing numbers or operational records.";
+    e.location = "Don't enter other people's personal details, ID numbers or operational records.";
   if (s.status === "cancelled" && s.payments.some((p) => !p.deleted)) e.status = "Remove recorded payments before cancelling this shift.";
   if (!s.officer_name.trim()) e.officer_name = "Officer name is required.";
   else if (PRISONER_NO_RE.test(s.officer_name) || SENSITIVE_WORDS_RE.test(s.officer_name))
-    e.officer_name = "Enter your own name only — no prisoner details.";
+    e.officer_name = "Enter your own name only.";
   return e;
 }
 

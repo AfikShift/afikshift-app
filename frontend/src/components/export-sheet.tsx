@@ -54,11 +54,17 @@ export function ExportSheet({ visible, onClose, shifts, label, from, to }: Props
           </Text>
           {!format ? (
             <View style={{ gap: spacing.sm }}>
-              <Button testID="export-csv-button" label="CSV spreadsheet" icon="grid-outline" variant="secondary" onPress={() => setFormat("csv")} />
               {isPro ? (
-                <Button testID="export-pdf-button" label="PDF report" icon="document-text-outline" variant="secondary" onPress={() => setFormat("pdf")} />
+                <>
+                  <Button testID="export-csv-button" label="CSV spreadsheet" icon="grid-outline" variant="secondary" onPress={() => setFormat("csv")} />
+                  <Button testID="export-pdf-button" label="PDF report" icon="document-text-outline" variant="secondary" onPress={() => setFormat("pdf")} />
+                </>
               ) : (
-                <ProPrompt testID="export-pdf-pro-prompt" title="PDF reports with Pro" body="CSV export of all your records is always free." />
+                <ProPrompt
+                  testID="export-pro-prompt"
+                  title="CSV & PDF reports with Pro"
+                  body="A free copy of all your personal data is always available: Account → Download my data."
+                />
               )}
               <Button testID="export-close-button" label="Cancel" variant="ghost" onPress={close} />
             </View>

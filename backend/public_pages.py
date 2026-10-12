@@ -41,7 +41,7 @@ def page(title: str, body: str, script: str = "") -> HTMLResponse:
     html = f"""<!doctype html><html lang="en-GB"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)} · DutyConnect</title>
 <meta name="robots" content="noindex"><style nonce="{nonce}">{CSS}</style></head><body>
-<header><b>DutyConnect</b><span>Stay Connected. Stay Organised.</span></header><main>{body}</main>
+<header><b>DutyConnect</b><span>Know your shifts. Track your earnings. Stay in control.</span></header><main>{body}</main>
 {f'<script nonce="{nonce}">{script}</script>' if script else ''}</body></html>"""
     csp = (f"default-src 'none'; style-src 'nonce-{nonce}'; script-src 'nonce-{nonce}'; "
            "connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'")
@@ -53,18 +53,18 @@ def privacy_html() -> HTMLResponse:
     body = f"""
 <h1>Privacy Policy</h1><p class="note">Last updated: {c['updated']}</p>
 <section><h2>Who we are</h2><p>DutyConnect is provided by {c['org']} (the "data controller"). Contact: <a href="mailto:{c['email']}">{c['email']}</a>.
-DutyConnect is a personal record-keeping tool for officers' additional (PP) duties and payments. It is not an official HMPPS or payroll system.</p></section>
+DutyConnect is an independent shift planner, overtime tracker and earnings manager for shift workers. It is not owned, operated or endorsed by any employer or government organisation, and it is not a payroll system.</p></section>
 <section><h2>What we collect</h2><table>
 <tr><th>Data</th><th>Why</th></tr>
 <tr><td>Name, email address, professional category, currency, default hourly rate, notification preferences</td><td>Your account and earnings estimates</td></tr>
 <tr><td>Password (stored only as a one-way bcrypt hash)</td><td>Signing in</td></tr>
-<tr><td>Shift records: officer name, duty type, date, day/night, times, unpaid break, location, status, hourly rate</td><td>The shift manager, calendar and earnings</td></tr>
+<tr><td>Shift records: your name, shift type, custom shift templates, date, day/night, times, unpaid break, location, status, hourly rate</td><td>The shift manager, calendar and earnings</td></tr>
 <tr><td>Payment records: amount, date, optional note, and your choices when resolving payment clashes</td><td>Payment tracking</td></tr>
 <tr><td>Security data: sign-in session tokens (stored hashed), one-time codes (stored hashed, 15 minutes), failed sign-in counters (hashed, 15 minutes)</td><td>Protecting your account</td></tr>
 <tr><td>Technical data: IP address and request details in server logs</td><td>Security and fault-finding</td></tr></table>
 <p>We do <b>not</b> use advertising, analytics or tracking tools, and we do not sell or share your data for marketing.</p></section>
-<section><h2>Prisoner and operational information</h2><p>Do not enter prisoner names or numbers, cell or wing details, NOMIS/PNC references or any operational records.
-The app blocks common patterns (for example prisoner numbers such as A1234BC), but this check cannot catch everything, so please take care with free-text fields such as location and payment notes.</p></section>
+<section><h2>Other people's information</h2><p>Do not enter other people's names or ID numbers (for example patients, clients or members of the public), or confidential workplace or operational records.
+The app blocks some common patterns (for example reference numbers such as A1234BC), but this check cannot catch everything, so please take care with free-text fields such as location and payment notes.</p></section>
 <section><h2>Where your data is stored and how it is protected</h2><ul>
 <li>On your phone, shift and payment records are encrypted (XChaCha20-Poly1305). The key is held in the phone's secure Keychain / Keystore.</li>
 <li>Data travels between the app and our servers over HTTPS (TLS).</li>
@@ -78,7 +78,7 @@ These providers act on our instructions as data processors. [Replace with the na
 <li>Deleted shifts: kept in Recently Deleted for 90 days so you can restore them, then permanently removed.</li>
 <li>Encrypted backups: up to {c['backup_days']} days, then destroyed. Backups are not edited. If a backup ever has to be restored, accounts deleted since the backup was taken are deleted again straight away, using a deletion log that holds only a one-way code (not your email address).</li>
 <li>Server logs: [state period, e.g. 30 days].</li></ul></section>
-<section><h2>Your rights</h2><p>Under UK GDPR you can ask to access, correct, export, restrict or delete your data, and you can object to processing. You can export your records as CSV/PDF in the app.
+<section><h2>Your rights</h2><p>Under UK GDPR you can ask to access, correct, export, restrict or delete your data, and you can object to processing. On every plan you can use <b>Download my data</b> (Account → Privacy) for a free copy of all your records (JSON), once every 7 days; for anything more, email us – there is never a charge. Pro adds CSV/PDF reports.
 <a href="delete-account">Delete your account here</a>, from the Account screen in the app, or by emailing us. You can complain to the Information Commissioner's Office (ico.org.uk).</p>
 <p>Legal basis: performing our agreement with you (providing the app) and our legitimate interest in keeping it secure.</p></section>
 <section><h2>Changes</h2><p>We will update this page and the date above if this policy changes.</p></section>"""
@@ -89,9 +89,9 @@ def terms_html() -> HTMLResponse:
     c = {k: escape(v) for k, v in cfg().items()}
     body = f"""
 <h1>Terms of Use</h1><p class="note">Last updated: {c['updated']}</p>
-<section><h2>The service</h2><p>DutyConnect, provided by {c['org']}, helps you record your own additional duties and payments. Earnings figures are estimates and are not official payroll records. Always check them against your payslip.</p></section>
+<section><h2>The service</h2><p>DutyConnect, provided by {c['org']}, helps you plan your shifts and record your own overtime, extra shifts and payments. Earnings figures are estimates and are not official payroll records. Always check them against your payslip.</p></section>
 <section><h2>Your responsibilities</h2><ul><li>Keep your password and device secure.</li>
-<li>Do not enter prisoner-identifiable, operational or security-sensitive information.</li>
+<li>Do not enter other people's personal details, operational or security-sensitive information.</li>
 <li>Follow your employer's policies when you use personal apps.</li></ul></section>
 <section><h2>Availability</h2><p>We aim to keep DutyConnect available and your data safe, but we cannot guarantee uninterrupted service. Keep your own exports of important records.</p></section>
 <section><h2>Ending your account</h2><p>You can delete your account at any time. See the <a href="privacy">Privacy Policy</a> and the <a href="delete-account">account deletion page</a>.</p></section>

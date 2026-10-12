@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
-/** Standing reminder shown wherever officers can type free text. */
+/** Standing reminder shown wherever users can type free text. */
 export function PrivacyNotice() {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -11,7 +11,7 @@ export function PrivacyNotice() {
     <View style={styles.box} testID="privacy-notice">
       <Ionicons name="shield-checkmark-outline" size={16} color={colors.onBrandTertiary} />
       <Text style={styles.text}>
-        Personal PP records only. Never enter prisoner-identifiable information, security-sensitive details or operational incidents.
+        Personal shift records only. Never enter other people's personal details or confidential workplace information.
       </Text>
     </View>
   );

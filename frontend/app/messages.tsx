@@ -9,7 +9,7 @@ import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme"
 const IOS_POINTS = [
   "Apple does not allow any third-party app to read or forward your SMS or iMessages.",
   "This is an iOS platform restriction, not a DutyConnect limitation, and no App Store app can work around it.",
-  "Every other DutyConnect feature (PP shifts, earnings, payments and reports) works fully on iPhone.",
+  "Every other DutyConnect feature (shifts, earnings, payments and reports) works fully on iPhone.",
 ];
 
 const ANDROID_POINTS = [
@@ -53,7 +53,7 @@ export default function Messages() {
         <View style={styles.note} testID="messages-privacy-note">
           <Ionicons name="lock-closed-outline" size={16} color={colors.muted} />
           <Text style={styles.noteText}>
-            Message forwarding will never be covert, and never goes to HMPPS or employer-managed email without authorisation.
+            Message forwarding will never be covert, and never goes to employer-managed email without authorisation.
           </Text>
         </View>
       </ScrollView>

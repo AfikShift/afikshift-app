@@ -14,7 +14,7 @@ Nothing has been submitted. This is the prepared material for your review.
 | App activity → Other user-generated content (shift records: duty type, dates, times, location, notes) | Yes | No | Optional | App functionality | `ShiftData`, `PaymentIn.note` |
 | App info & performance → Diagnostics / crash logs | **No** (no crash or analytics SDK) | No | – | – | `frontend/package.json` has no analytics/crash SDK |
 | Device or other IDs | **No** | No | – | – | No advertising ID / device ID read anywhere |
-| Location (precise/approximate) | **No** | – | – | "Location" field is free text typed by the officer, not GPS | `ShiftData.location` (string); no location permission in app.json |
+| Location (precise/approximate) | **No** | – | – | "Location" field is free text typed by the user, not GPS | `ShiftData.location` (string); no location permission in app.json |
 | Biometrics | **No** – Face/fingerprint handled by Android; app receives only "success/fail" | – | – | – | `expo-local-authentication`; `lock-screen.tsx` |
 | Passwords | Stored only as bcrypt hash; Play has no separate type – covered under account management | No | Required | Security | `hash_password()` (bcrypt, 12 rounds) |
 
@@ -39,12 +39,12 @@ provided a data-processing agreement exists with the provider (see gaps below).
 - Retained: revoked session hashes flagged `account_deleted` until they expire (≤ 30 days; contain no personal data), a deletion-log entry
   (user id, keyed hash, date) for 65 days, encrypted backups up to 35 days, server logs (IP addresses) for the host's log period.
 
-## B. Prisoner / operational data safeguards and limitations
-- Server and app block prisoner numbers (pattern `A1234BC`) and words such as *prisoner, inmate, NOMIS, PNC, cell 12, wing B2*
-  in officer name, location and payment note (`check_sensitive()` in server.py; `isSensitive()` in calc.ts). Tests: `TestValidation`.
+## B. Third-party personal data safeguards and limitations
+- Server and app block reference-number patterns (e.g. `A1234BC`) and a list of sensitive words
+  in the name, location and payment note (`check_sensitive()` in server.py; `isSensitive()` in calc.ts). Tests: `TestValidation`.
 - Fields are short (location ≤ 60, note ≤ 40 characters) and there are no free-text "notes" on shifts.
-- **Limitation:** pattern checks cannot recognise prisoner names or reworded descriptions. The privacy policy and in-app
-  privacy notice tell officers not to enter them. Declare this honestly if Google asks.
+- **Limitation:** pattern checks cannot recognise other people's names or reworded descriptions. The privacy policy and in-app
+  privacy notice tell users not to enter them. Declare this honestly if Google asks.
 
 ## C. Gaps and uncertainties for your review (not assumed)
 1. **Package name** is `com.emergent.dutyconnectbeta.qws5xm` (app.json). Choose your own permanent id (e.g. `uk.co.yourorg.dutyconnect`) **before the first upload** – it cannot be changed afterwards.
@@ -52,13 +52,13 @@ provided a data-processing agreement exists with the provider (see gaps below).
 3. **Database encryption at rest** must be confirmed for the chosen host.
 4. **Server log retention** (IP addresses) must be set and stated.
 5. **Legal review**: privacy policy and terms need review by a qualified adviser; confirm no statutory retention applies.
-6. **Employer policy**: officers' employers may restrict personal apps for duty records – consider a statement in the store listing.
+6. **Employer policy**: users' employers may restrict personal apps for work records – consider a statement in the store listing.
 7. NetInfo (connectivity detection) uses Android system APIs; no third-party request is made by the app for analytics.
 
 ## D. Other Play Console steps (when you approve publication)
 1. Create a Google Play developer account (US$25 one-off; organisation accounts need a D-U-N-S number).
 2. App content: privacy policy URL, Data Safety (above), ads = **No**, target audience 18+, content rating questionnaire
-   (utility/productivity, no user-to-user content), government app = **No** (it is not an official HMPPS app – say so in the listing).
+   (utility/productivity, no user-to-user content), government app = **No** (DutyConnect is independent and not endorsed by any employer or government body – say so in the listing).
 3. Permissions declared: `USE_BIOMETRIC`, `USE_FINGERPRINT` (+ INTERNET added by Expo). No SMS permission in this version.
 4. Target API level: the Expo SDK 57 build targets the current Play requirement; confirm in the build report.
 5. Testing track: new personal developer accounts must run a **closed test with at least 12 testers for 14 days** before production.

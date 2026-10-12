@@ -12,7 +12,8 @@ import { tap } from "@/src/components/ui";
 import { firstName, greeting, money } from "@/src/format";
 import { DUTY_LABEL, crossesMidnight, formatDateLong, formatHours, toISODate } from "@/src/shifts/calc";
 import { useShifts } from "@/src/shifts/provider";
-import { monthStats, nextShift } from "@/src/shifts/stats";
+import { monthStats, nextShift, periodRange, summarise } from "@/src/shifts/stats";
+import { useEntitlement } from "@/src/billing/entitlement";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -58,7 +59,12 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const month = new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" });
   const { shifts, syncNow, syncBlocked, makeSyncPhone } = useShifts();
-  const stats = useMemo(() => monthStats(shifts, toISODate(new Date()).slice(0, 7)), [shifts]);
+  const { isPro } = useEntitlement();
+  const stats = useMemo(() => {
+    if (isPro) return monthStats(shifts, toISODate(new Date()).slice(0, 7));
+    const w = periodRange("week", toISODate(new Date())); // Free: basic current-week summary
+    return summarise(shifts, w.from, w.to);
+  }, [shifts, isPro]);
   const next = useMemo(() => nextShift(shifts), [shifts]);
 
   const onRefresh = useCallback(async () => {
@@ -71,7 +77,7 @@ export default function Home() {
     <View style={styles.root} testID="home-screen">
       <TabHeader
         subtitle={greeting()}
-        title={firstName(user?.full_name) || "Officer"}
+        title={firstName(user?.full_name) || "there"}
         right={<SyncBadge />}
       />
       <ScrollView
@@ -100,7 +106,7 @@ export default function Home() {
             <Pressable testID="home-set-rate-banner" onPress={() => router.push("/profile")} style={styles.banner}>
               <Ionicons name="cash-outline" size={20} color={colors.warning} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.bannerTitle}>Set your hourly PP rate</Text>
+                <Text style={styles.bannerTitle}>Set your default hourly rate</Text>
                 <Text style={styles.bannerBody}>Needed to estimate your earnings.</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.muted} />
@@ -139,7 +145,7 @@ export default function Home() {
           ) : (
             <>
               <Text style={styles.heroTitle}>No upcoming shifts</Text>
-              <Text style={styles.heroBody}>Your next booked PP duty will appear here.</Text>
+              <Text style={styles.heroBody}>Your next booked shift will appear here.</Text>
               <Pressable testID="home-hero-add-shift-button" onPress={() => router.push("/shift-form")} style={styles.heroBtn}>
                 <Ionicons name="add" size={18} color={colors.hero} />
                 <Text style={styles.heroBtnText}>Add a shift</Text>
@@ -156,7 +162,7 @@ export default function Home() {
 
         <Animated.View entering={FadeInDown.delay(180).duration(450)} style={styles.card} testID="home-month-summary-card">
           <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>This month</Text>
+            <Text style={styles.cardTitle}>{isPro ? "This month" : "This week"}</Text>
             <Text style={styles.cardSub}>{month}</Text>
           </View>
           <View style={styles.stats}>

@@ -45,7 +45,7 @@ export default function Register() {
   };
 
   return (
-    <AuthShell title="Create your account" subtitle="Free PP shift tracking. Takes under a minute." testID="register-screen">
+    <AuthShell title="Create your account" subtitle="Know your shifts. Track your earnings. Takes under a minute." testID="register-screen">
       <TextField
         testID="register-name-input"
         label="Full name"
@@ -89,7 +89,7 @@ export default function Register() {
           {consent && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
         </View>
         <Text style={styles.consentText}>
-          I understand DutyConnect stores my personal PP records only, and I will not enter prisoner details or confidential
+          I understand DutyConnect stores my personal shift records only, and I will not enter other people's personal details or confidential
           employer information.
         </Text>
       </Pressable>

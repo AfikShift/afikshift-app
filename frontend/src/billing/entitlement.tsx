@@ -19,6 +19,7 @@ export type Entitlement = {
   pass_expires_at: string;
   account_ref: string;
   mode: string;
+  founding_eligible?: boolean;
 };
 
 const KEY = "dc_entitlement_v1";
@@ -81,4 +82,4 @@ export function EntitlementProvider({ children }: { children: React.ReactNode })
 }
 
 export const useEntitlement = () => useContext(EntCtx);
-export const FREE_HISTORY_DAYS = 30;
+export const FREE_HISTORY_DAYS = 7;

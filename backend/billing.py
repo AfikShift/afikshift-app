@@ -20,7 +20,9 @@ from pydantic import BaseModel, Field
 MODE = os.environ.get("BILLING_MODE", "mock")
 PACKAGE = os.environ.get("ANDROID_PACKAGE", "")
 PRODUCTS = {"dutyconnect_pro_monthly", "dutyconnect_pro_annual"}
-PASS_DAYS = 7  # offline Pro pass never outlives the paid period or 7 days
+PASS_DAYS = 7
+FOUNDING_OFFER_ID = "founding"  # developer-determined introductory offer on each base plan
+FOUNDING_LIMIT = int(os.environ.get("FOUNDING_MEMBER_LIMIT", "200"))  # offline Pro pass never outlives the paid period or 7 days
 PRO_STATES = {"SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"}
 _SIGNING = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(os.environ["ENTITLEMENT_SIGNING_KEY"]))
 _AES = AESGCM(bytes.fromhex(os.environ["BILLING_TOKEN_KEY"]))
@@ -135,7 +137,8 @@ def make_router(db, current_user, logger) -> APIRouter:
         doc = {"token_hash": th, "token_enc": seal(token), "user_id": owner, "product_id": item["productId"],
                "state": g.get("subscriptionState"), "expiry": parse_time(item.get("expiryTime")),
                "auto_renew": bool((item.get("autoRenewingPlan") or {}).get("autoRenewEnabled")),
-               "order_id": g.get("latestOrderId"), "updated_at": now()}
+               "order_id": g.get("latestOrderId"), "updated_at": now(),
+               "founding": (item.get("offerDetails") or {}).get("offerId") == FOUNDING_OFFER_ID}
         await db.subscriptions.update_one({"token_hash": th}, {"$set": doc, "$setOnInsert": {"created_at": now()}}, upsert=True)
         linked = g.get("linkedPurchaseToken")
         if linked:  # upgrade / resubscribe replaces the old purchase: never two entitlements
@@ -173,7 +176,14 @@ def make_router(db, current_user, logger) -> APIRouter:
         return {"plan": res["plan"], "product_id": s and s["product_id"], "state": s and s["state"],
                 "expires_at": exp.isoformat() if exp else None, "will_renew": bool(s and s.get("auto_renew") and res["plan"] == "pro"),
                 "pass": sign_pass(uid, res["plan"], until), "pass_expires_at": until.isoformat(),
-                "account_ref": account_ref(uid), "mode": MODE}
+                "account_ref": account_ref(uid), "mode": MODE, "founding_eligible": await founding_eligible(uid)}
+
+    async def founding_eligible(uid: str) -> bool:
+        """First FOUNDING_LIMIT paying subscribers who have never subscribed before. The app only requests
+        the founding offer when this is true; Google applies the price and the move to the standard price."""
+        if await db.subscriptions.find_one({"user_id": uid}):
+            return False
+        return len(await db.subscriptions.distinct("user_id", {"founding": True})) < FOUNDING_LIMIT
 
     @r.get("/entitlement")
     async def entitlement(user: dict = Depends(current_user)):

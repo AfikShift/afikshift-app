@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 
 import { ApiError, REFRESH_KEY, clearTokens, request, saveTokens, setAccountDeletedHandler, setSessionExpiredHandler, tryRefresh } from "@/src/api";
 import { removeEncrypted, shiftsKey } from "@/src/shifts/local-store";
+import { ShiftTemplate, setCustomTemplates } from "@/src/shifts/calc";
 import { storage } from "@/src/utils/storage";
 
 export type NotificationPrefs = { shift_reminders: boolean; payment_reminders: boolean; product_updates: boolean };
@@ -13,6 +14,7 @@ export type User = {
   professional_category: string;
   currency: "GBP" | "EUR" | "USD";
   hourly_rate: number | null;
+  shift_templates?: ShiftTemplate[];
   notification_prefs: NotificationPrefs;
   plan: string;
   features: Record<string, boolean>;
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const cacheUser = useCallback(async (u: User | null) => {
     setUser(u);
+    setCustomTemplates(u?.shift_templates);
     if (u) await storage.secureSet(USER_CACHE_KEY, JSON.stringify(u));
     else await storage.secureRemove(USER_CACHE_KEY);
   }, []);
@@ -89,7 +92,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = await storage.secureGet(REFRESH_KEY, null as string | null);
       if (!token) return setStatus("signedOut");
       const cached = await storage.secureGet(USER_CACHE_KEY, null as string | null);
-      if (cached) setUser(JSON.parse(cached));
+      if (cached) {
+        const cu = JSON.parse(cached);
+        setUser(cu);
+        setCustomTemplates(cu?.shift_templates);
+      }
       const ok = await tryRefresh();
       if (ok) {
         try {

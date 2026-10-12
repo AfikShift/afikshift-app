@@ -7,7 +7,7 @@ import { LocalShift } from "@/src/shifts/provider";
 import { ThemeColors, fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 export function dutyColors(c: ThemeColors, d: DutyType) {
-  return d === "bed_watch" ? [c.dutyBed, c.dutyBedSoft] : d === "constant_watch" ? [c.dutyConstant, c.dutyConstantSoft] : [c.dutyOther, c.dutyOtherSoft];
+  return d === "standard" || d === "bed_watch" ? [c.dutyBed, c.dutyBedSoft] : d === "overtime" || d === "constant_watch" ? [c.dutyConstant, c.dutyConstantSoft] : [c.dutyOther, c.dutyOtherSoft];
 }
 
 export function ShiftCard({ shift, currency, onPress, showDate = true }: { shift: LocalShift; currency?: string; onPress?: () => void; showDate?: boolean }) {
@@ -58,6 +58,11 @@ export function ShiftCard({ shift, currency, onPress, showDate = true }: { shift
           {shift.status === "completed" && (
             <View style={[styles.pill, { backgroundColor: shift.payment_status === "paid" ? colors.successSoft : colors.warningSoft }]}>
               <Text style={[styles.pillText, { color: shift.payment_status === "paid" ? colors.success : colors.warning }]}>{PAYMENT_LABEL[shift.payment_status]}</Text>
+            </View>
+          )}
+          {shift._held && (
+            <View style={[styles.pill, { backgroundColor: colors.warningSoft }]} testID={`shift-card-held-${shift.id}`}>
+              <Text style={[styles.pillText, { color: colors.warning }]}>On this phone only – over Free limit</Text>
             </View>
           )}
           {shift.payment_clash && (

@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 9 retest of DutyConnect Phase A+B fixes (frontend only, viewport 390x844, Free user delivered+t1@resend.dev). All four in-scope checks PASS: (1) Shifts → List → History shows the 3-days-ago shift ('AB Recent3d', Fri 9 Oct, Standard shift, 4h, £80.00) and HIDES the 20-days-ago shift ('AB Old20d' not present). (2) history-older-prompt (testID present) is rendered with title '1 older shift is safely stored' and body text 'Free shows the last 7 days. View every record by exporting a CSV (Account → Export my data), or upgrade to browse them here.' — the previous 'last 30 days' / olderHidden=0 bug is fixed (FREE_HISTORY_DAYS is now 7 at /app/frontend/src/billing/entitlement.tsx:85 and olderHidden uses allShifts at /app/frontend/src/components/shift-list-view.tsx:48). (3) Account → Personal details (account-edit-profile-row) value reads 'Custodial & justice' and 'Prison Officer' no longer appears anywhere on the Account screen — the backend startup migration at /app/backend/server.py:880-883 successfully updated the legacy user's professional_category. (4) Home 'This week' card renders on Free (shows 0 completed, £0.00 estimated gross, 3 booked · £240.00 projected from the seeded future shifts) and the Earnings tab renders with the '12 Oct – 18 Oct 2026' header, Estimated gross £0.00 card and Export report button. No React Native red screens. Only carryover console warnings: 'shadow* style props are deprecated' (pre-existing). One 403 on a resource load (likely a non-critical static/manifest fetch — did not block the UI). Seed data was fully cleaned up after the test.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "Shadow* style props (carryover)", "issue": "Console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' — pre-existing from iteration 1, out of scope for Phase A/B retest."}
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/seed_phase_ab.py (reused prep/cleanup helper: seeds 3 future booked + AB Old20d + AB Recent3d; cleanup resets templates and sync_device/last_data_download_at)"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "/app/frontend/src/billing/entitlement.tsx:85 FREE_HISTORY_DAYS is now 7, matching /app/backend/server.py features.history_days — single source-of-truth concern noted in iteration 8 is resolved for the current spec.",
+    "/app/frontend/src/components/shift-list-view.tsx:48 olderHidden now counts over allShifts (the full on-device store) rather than the already-7-day-filtered 'shifts' prop, so the prompt fires even when the client-side filter has already hidden the older shift. Body copy at line 110 now reads 'Free shows the last 7 days.'",
+    "/app/backend/server.py:880-883 Phase A startup migration maps 'Prison Officer', 'Operational Support Grade', 'Custodial Manager' → 'Custodial & justice' and 'Security Officer' → 'Security' via db.users.update_many — idempotent and verified on the test account."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only retest per request)", "frontend": "100% in-scope — History 7-day gating + older-prompt copy ✓, Account category migrated to 'Custodial & justice' ✓, Home 'This week' card ✓, Earnings tab regression ✓."},
+  "seed_data_creation": "Seeded via /app/test_reports/seed_phase_ab.py prep: 3 booked future shifts (AB Future1/2/3, today+1/2/3) + AB Old20d (completed, today-20) + AB Recent3d (completed, today-3). Cleanup ran successfully after the test (pp_shifts for AB-* removed; users.shift_templates=[]; sync_device and last_data_download_at $unset).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Server date is 2026-10-12. Welcome screen still requires an extra tap on the 'Sign in' hero before the login form renders. Login testIDs: login-email-input, login-password-input, login-submit-button. Shifts tab opens in Month view — tap 'List' then shifts-list-tab-history. The history-older-prompt is only shown on Free, only on the History tab, and only when allShifts contains at least one non-upcoming shift older than 7 days (counted from allShifts in shift-list-view.tsx:48). Free user's single-sync-phone rule still applies — $unset users.sync_device before re-running Playwright. Both outstanding iteration-8 observations (placeholder support email in data-download toast; iteration-8 note that the main agent considers it intentional) are explicitly out of scope for this iteration."
+}

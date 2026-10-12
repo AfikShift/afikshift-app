@@ -48,22 +48,28 @@ KNOWN_DEV_SECRET_HASHES = {"f6e5a38b840f06c7c7f6e96fecd263e0c50f63e2d6f0c52ea280
 
 # Feature flags per plan. Subscriptions (Phase 4) only change the user's `plan`;
 # the app reads `features` from /api/me so no rebuild is needed.
+FREE_ACTIVE_SHIFTS = 3
 PLAN_FEATURES = {
     "free": {
         "pp_shifts": True, "calendar": True, "earnings": True, "payments": True,
-        "reports_csv": True, "reports_pdf": False, "earnings_dashboard": False, "multi_payments": False,
-        "multi_device": False, "history_days": 30, "calendar_reminders": False,
+        "reports_csv": False, "reports_pdf": False, "earnings_dashboard": False, "multi_payments": False,
+        "multi_device": False, "history_days": 7, "max_active_shifts": FREE_ACTIVE_SHIFTS, "custom_templates": 1,
+        "data_download": True, "calendar_reminders": False,
         "sms_forwarding": False, "multi_destinations": False, "priority_support": False,
     },
     "pro": {
         "pp_shifts": True, "calendar": True, "earnings": True, "payments": True,
         "reports_csv": True, "reports_pdf": True, "earnings_dashboard": True, "multi_payments": True,
-        "multi_device": True, "history_days": None, "calendar_reminders": False,
+        "multi_device": True, "history_days": None, "max_active_shifts": None, "custom_templates": None,
+        "data_download": True, "calendar_reminders": False,
         "sms_forwarding": False, "multi_destinations": False, "priority_support": False,
     },
 }
 
-PROFESSIONAL_CATEGORIES = ["Prison Officer", "Operational Support Grade", "Custodial Manager",
+PROFESSIONAL_CATEGORIES = ["Healthcare", "Security", "Emergency services", "Logistics & warehouse", "Manufacturing",
+                           "Hospitality", "Transport", "Retail", "Custodial & justice", "Other",
+                           # legacy values kept valid for existing accounts
+                           "Prison Officer", "Operational Support Grade", "Custodial Manager",
                            "Security Officer", "Other"]
 CURRENCIES = ["GBP", "EUR", "USD"]
 
@@ -145,6 +151,15 @@ async def recently_sent(user_id: str, kind: str) -> bool:
 
 
 # ---------------------------------------------------------------- models
+class TemplateIn(BaseModel):
+    """A custom shift type / template (e.g. "Night overtime 20:00–08:00")."""
+    id: str = Field(pattern=r"^[a-z0-9_]{1,40}$")
+    label: str = Field(min_length=1, max_length=30)
+    start_time: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    end_time: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    break_minutes: int = Field(default=0, ge=0, le=600)
+
+
 class NotificationPrefs(BaseModel):
     shift_reminders: bool = True
     payment_reminders: bool = True
@@ -159,6 +174,7 @@ class UserOut(BaseModel):
     currency: str
     hourly_rate: Optional[float]
     notification_prefs: NotificationPrefs
+    shift_templates: list = []
     plan: str
     features: dict
     email_verified: bool
@@ -167,9 +183,10 @@ class UserOut(BaseModel):
     @classmethod
     def from_doc(cls, d: dict) -> "UserOut":
         return cls(id=d["id"], email=d["email"], full_name=d["full_name"],
-                   professional_category=d.get("professional_category", "Prison Officer"),
+                   professional_category=d.get("professional_category", "Other"),
                    currency=d.get("currency", "GBP"), hourly_rate=d.get("hourly_rate"),
                    notification_prefs=NotificationPrefs(**d.get("notification_prefs", {})),
+                   shift_templates=d.get("shift_templates", []),
                    plan=d.get("plan", "free"), features=PLAN_FEATURES[d.get("plan", "free")],
                    email_verified=d.get("email_verified", False), created_at=d["created_at"])
 
@@ -213,6 +230,7 @@ class ProfileUpdate(BaseModel):
     hourly_rate: Optional[float] = Field(default=None, gt=0, le=500)
     clear_hourly_rate: bool = False
     notification_prefs: Optional[NotificationPrefs] = None
+    shift_templates: Optional[list[TemplateIn]] = Field(default=None, max_length=50)
 
     @field_validator("professional_category")
     @classmethod
@@ -310,7 +328,7 @@ async def register(body: RegisterIn):
     uid = str(uuid.uuid4())
     await db.users.insert_one({
         "id": uid, "email": email, "full_name": body.full_name.strip(), "password_hash": hash_password(body.password),
-        "professional_category": "Prison Officer", "currency": "GBP", "hourly_rate": None,
+        "professional_category": "Other", "currency": "GBP", "hourly_rate": None,
         "notification_prefs": NotificationPrefs().model_dump(), "plan": "free",
         "email_verified": False, "created_at": now(), "updated_at": now(),
     })
@@ -342,7 +360,7 @@ async def login(body: LoginIn, request: Request):
     email = body.email.lower()
     # Primary control: per-account counter (independent of IP/device, applied to unknown emails too).
     # Secondary: per account+IP counter. The account lock is temporary (15 min) and cleared by a
-    # successful password reset, so an attacker cannot lock a real officer out permanently.
+    # successful password reset, so an attacker cannot lock a real user out permanently.
     acct_key = "acct:" + account_hash(email)
     ip_key = "ip:" + digest(f"{email}:{client_ip(request)}")
     for key, limit in ((acct_key, ACCOUNT_MAX_FAILS), (ip_key, LOGIN_MAX_FAILS)):
@@ -419,6 +437,18 @@ async def update_me(body: ProfileUpdate, user: dict = Depends(current_user)):
     updates = body.model_dump(exclude_none=True, exclude={"clear_hourly_rate"})
     if body.clear_hourly_rate:
         updates["hourly_rate"] = None
+    if "shift_templates" in updates:
+        limit = PLAN_FEATURES.get(user.get("plan", "free"), PLAN_FEATURES["free"])["custom_templates"]
+        old = len(user.get("shift_templates", []))
+        new = len(updates["shift_templates"])
+        # Free: one custom template. Templates kept after a downgrade are never removed, but no more can be added.
+        if limit is not None and new > max(limit, old if new <= old else 0):
+            raise HTTPException(403, "pro_required_templates")
+        for t in updates["shift_templates"]:
+            try:
+                check_sensitive(t["label"], "Template name")
+            except ValueError as e:
+                raise HTTPException(400, str(e))
     if "full_name" in updates:
         updates["full_name"] = updates["full_name"].strip()
     if "hourly_rate" in updates and updates["hourly_rate"] is not None:
@@ -512,7 +542,7 @@ def shift_minutes(start: str, end: str) -> int:
 
 def check_sensitive(v: str, what: str = "text"):
     if PRISONER_NO_RE.search(v) or SENSITIVE_WORDS_RE.search(v):
-        raise ValueError("Do not enter prisoner details, cell/wing numbers or operational records")
+        raise ValueError("Do not enter other people's personal details, ID numbers or operational records")
 
 
 class PaymentIn(BaseModel):
@@ -558,7 +588,8 @@ class DecisionIn(BaseModel):
 
 class ShiftData(BaseModel):
     officer_name: str = Field(min_length=1, max_length=80)
-    duty_type: Literal["bed_watch", "constant_watch", "other"]
+    # Built-in (standard/overtime/extra/other), legacy (bed_watch/constant_watch) or a custom template id.
+    duty_type: str = Field(pattern=r"^[a-z0-9_]{1,40}$")
     shift_period: Literal["day", "night"]
     date: str = Field(pattern=DATE_RE)
     start_time: str = Field(pattern=TIME_RE)
@@ -692,13 +723,26 @@ def shift_out(doc: dict) -> dict:
     return out
 
 
-async def apply_change(uid: str, ch: ShiftChange) -> dict:
+def is_active(d: Optional[dict]) -> bool:
+    """Active/future = booked, not deleted, dated today or later (counts towards the Free limit)."""
+    return bool(d) and not d.get("deleted") and d.get("status") == "booked" and d.get("date", "") >= now().date().isoformat()
+
+
+async def apply_change(uid: str, ch: ShiftChange, plan: str = "pro") -> dict:
     cur = await db.pp_shifts.find_one({"id": ch.id}, {"_id": 0})
     if cur and cur["user_id"] != uid:
         return {"id": ch.id, "status": "rejected", "server": None}
     if cur and cur.get("last_change_id") == ch.change_id:
         return {"id": ch.id, "status": "duplicate", "server": shift_out(cur)}  # retry of an applied change
     incoming = ch.data.model_dump() if ch.data else None
+    # Free: at most FREE_ACTIVE_SHIFTS active/future shifts. A change that would ADD one (new booking,
+    # editing a past/cancelled shift back to booked, restoring) is held, never discarded: the app keeps
+    # it on the phone and it syncs automatically once below the limit or after upgrading.
+    if plan != "pro" and incoming and not ch.deleted and is_active({**incoming, "deleted": False}) and not is_active(cur):
+        active = await db.pp_shifts.count_documents({"user_id": uid, "deleted": False, "status": "booked",
+                                                     "date": {"$gte": now().date().isoformat()}, "id": {"$ne": ch.id}})
+        if active >= FREE_ACTIVE_SHIFTS:
+            return {"id": ch.id, "status": "limit", "server": shift_out(cur) if cur else None}
     fields = {"deleted": ch.deleted, "last_change_id": ch.change_id, "updated_at": now()}
     # Deleted shifts keep all their details and payments for DELETED_RETENTION_DAYS (Recently
     # Deleted); a change with deleted=false restores them.
@@ -763,7 +807,7 @@ async def sync_shifts(body: SyncIn, request: Request, user: dict = Depends(curre
         elif user["sync_device"] != device:
             raise HTTPException(403, "pro_required_multi_device")
     server_time = now()
-    results = [await apply_change(user["id"], ch) for ch in body.changes]
+    results = [await apply_change(user["id"], ch, user.get("plan", "free")) for ch in body.changes]
     await purge_expired_deleted(user["id"])
     q = {"user_id": user["id"]}
     if body.since:
@@ -779,6 +823,28 @@ app.include_router(api)
 app.include_router(public_router)
 app.include_router(make_billing_router(db, current_user, logger))
 install_security(app, client_ip)
+
+
+@app.get("/api/me/data-download")
+async def data_download(user: dict = Depends(current_user)):
+    """Free personal-data download (JSON) for access/portability rights, on every plan. Self-service
+    once per 7 days; further requests go to support at no cost (see the Privacy Policy)."""
+    last = user.get("last_data_download_at")
+    if last and last.replace(tzinfo=timezone.utc) > now() - timedelta(days=7):
+        nxt = (last.replace(tzinfo=timezone.utc) + timedelta(days=7)).date().isoformat()
+        raise HTTPException(429, f"Self-service download available again on {nxt}. Need it sooner? "
+                                 f"Email {os.environ.get('SUPPORT_EMAIL', 'support')} - it's free.")
+    await db.users.update_one({"id": user["id"]}, {"$set": {"last_data_download_at": now()}})
+    shifts = await db.pp_shifts.find({"user_id": user["id"]}, {"_id": 0, "user_id": 0, "last_change_id": 0}).to_list(100000)
+    for sh in shifts:
+        for k in ("created_at", "updated_at", "deleted_at"):
+            if isinstance(sh.get(k), datetime):
+                sh[k] = sh[k].isoformat()
+    profile = {k: user.get(k) for k in ("email", "full_name", "professional_category", "currency", "hourly_rate",
+                                        "notification_prefs", "shift_templates", "plan")}
+    subs = await db.subscriptions.find({"user_id": user["id"]}, {"_id": 0, "product_id": 1, "state": 1, "expiry": 1}).to_list(50)
+    return {"format": "DutyConnect personal data v1", "generated_at": now().isoformat(), "profile": profile,
+            "shifts": shifts, "subscriptions": [{**x, "expiry": x["expiry"].isoformat() if x.get("expiry") else None} for x in subs]}
 
 
 @app.post("/api/devices/primary")
@@ -811,6 +877,10 @@ async def startup():
     await db.pp_shifts.create_index([("user_id", 1), ("updated_at", 1)])
     await db.login_attempts.create_index("key", unique=True)
     await db.login_attempts.create_index("expires_at", expireAfterSeconds=0)
+    # Phase A: move legacy prison-specific profile categories to neutral ones (labels only; no records change).
+    for old, new in (("Prison Officer", "Custodial & justice"), ("Operational Support Grade", "Custodial & justice"),
+                     ("Custodial Manager", "Custodial & justice"), ("Security Officer", "Security")):
+        await db.users.update_many({"professional_category": old}, {"$set": {"professional_category": new}})
     await db.subscriptions.create_index("token_hash", unique=True)
     await db.subscriptions.create_index("user_id")
     await db.rtdn_events.create_index("message_id", unique=True)

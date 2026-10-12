@@ -63,8 +63,10 @@ class TestEntitlements:
     def test_new_user_is_free_with_limited_features(self, officer):
         _, h, _ = officer
         me = requests.get(f"{API}/me", headers=h).json()
-        assert me["plan"] == "free" and me["features"]["history_days"] == 30
-        assert me["features"]["reports_csv"] is True and me["features"]["reports_pdf"] is False
+        # Phase B (approved): Free = 7-day history, CSV and PDF are Pro-only, 3 active shifts, 1 template.
+        assert me["plan"] == "free" and me["features"]["history_days"] == 7
+        assert me["features"]["reports_csv"] is False and me["features"]["reports_pdf"] is False
+        assert me["features"]["max_active_shifts"] == 3 and me["features"]["custom_templates"] == 1
 
     def test_successful_purchase_grants_pro_and_acknowledges_once(self, officer, mongo_db):
         _, h, ref = officer

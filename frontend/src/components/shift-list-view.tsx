@@ -7,7 +7,7 @@ import { ProPrompt } from "@/src/components/pro-prompt";
 import { FREE_HISTORY_DAYS, useEntitlement } from "@/src/billing/entitlement";
 import { money } from "@/src/format";
 import { addDays, formatHours, interval, toISODate } from "@/src/shifts/calc";
-import { LocalShift } from "@/src/shifts/provider";
+import { LocalShift, useShifts } from "@/src/shifts/provider";
 import { summarise } from "@/src/shifts/stats";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
@@ -41,9 +41,11 @@ export function ShiftListView({
   const [tab, setTab] = useState<Tab>("upcoming");
   const [filter, setFilter] = useState<Filter>("all");
   const { isPro } = useEntitlement();
+  const { allShifts } = useShifts();
   // Free: last 30 days of history in the app. Older records stay stored, synced and exportable.
   const cutoff = addDays(toISODate(new Date()), -FREE_HISTORY_DAYS);
-  const olderHidden = isPro || tab !== "history" ? 0 : shifts.filter((s) => !isUpcoming(s) && s.date < cutoff).length;
+  // Count from all stored records (the visible list is already limited to 7 days on Free).
+  const olderHidden = isPro || tab !== "history" ? 0 : allShifts.filter((s) => !isUpcoming(s) && s.date < cutoff).length;
 
   const data = useMemo(() => {
     const now = Date.now();
@@ -105,7 +107,7 @@ export function ShiftListView({
             <ProPrompt
               testID="history-older-prompt"
               title={`${olderHidden} older shift${olderHidden === 1 ? " is" : "s are"} safely stored`}
-              body="Free shows the last 30 days. View every record by exporting a CSV (Account → Export my data), or upgrade to browse them here."
+              body="Free shows the last 7 days. View every record by exporting a CSV (Account → Export my data), or upgrade to browse them here."
             />
           )}
         </View>

@@ -73,7 +73,7 @@ export default function Shifts() {
 
   return (
     <View style={styles.root} testID="shifts-screen">
-      <TabHeader title="My PP Shifts" right={<SyncBadge />} />
+      <TabHeader title="My Shifts" right={<SyncBadge />} />
       {mode === "list" ? (
         <ShiftListView
           shifts={shifts}
@@ -92,9 +92,9 @@ export default function Shifts() {
         {modeSwitch}
         <ShiftCalendar mode={mode} selected={selected} onSelect={setSelected} byDate={byDate} />
         <View style={styles.legend}>
-          <Legend color={colors.dutyBed} label="Bed Watch" />
-          <Legend color={colors.dutyConstant} label="Constant Watch" />
-          <Legend color={colors.dutyOther} label="Other PP" />
+          <Legend color={colors.dutyBed} label="Standard" />
+          <Legend color={colors.dutyConstant} label="Overtime" />
+          <Legend color={colors.dutyOther} label="Other / custom" />
           <Ionicons name="moon" size={10} color={colors.night} />
           <Text style={styles.legendText}>Night</Text>
         </View>

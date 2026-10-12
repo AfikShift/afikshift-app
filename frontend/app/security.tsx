@@ -129,7 +129,7 @@ export default function Security() {
           <ListRow testID="security-delete-account-row" icon="trash-outline" title="Delete account" danger onPress={() => setShowDelete(true)} last />
         </Card>
         <Text style={styles.note}>
-          Your data is encrypted in transit and protected by your password. DutyConnect never needs prisoner details or confidential
+          Your data is encrypted in transit and protected by your password. DutyConnect never needs other people's personal details or confidential
           employer information.
         </Text>
       </KeyboardAwareScrollView>
@@ -139,7 +139,7 @@ export default function Security() {
           <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]} onPress={() => {}} testID="delete-account-sheet">
             <Text style={styles.sheetTitle}>Delete your account?</Text>
             <Text style={styles.sheetBody}>
-              This permanently deletes your profile, PP shifts and payment records from our servers. This cannot be undone.
+              This permanently deletes your profile, shifts and payment records from our servers. This cannot be undone.
             </Text>
             <TextField testID="delete-account-password-input" label="Password" value={delPw} onChangeText={setDelPw} secure error={delError} />
             <Button testID="delete-account-confirm-button" label="Delete permanently" variant="danger" onPress={confirmDelete} loading={deleting} />

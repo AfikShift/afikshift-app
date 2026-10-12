@@ -1,5 +1,5 @@
-// CSV / PDF earnings reports, built on the device from the signed-in officer's own records.
-// The records come only from this officer's encrypted local store, which the server fills
+// CSV / PDF earnings reports, built on the device from the signed-in user's own records.
+// The records come only from this user's encrypted local store, which the server fills
 // exclusively with shifts owned by the authenticated account.
 import { File, Paths } from "expo-file-system";
 import * as Print from "expo-print";
@@ -27,7 +27,7 @@ function cell(v: string | number) {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-const HEAD = ["Date", "Start", "Finish", "Period", "Duty type", "Location", "Status", "Unpaid break (mins)", "Payable hours", "Hourly rate", "Estimated", "Received", "Outstanding", "Payment status", "Provisional"];
+const HEAD = ["Date", "Start", "Finish", "Period", "Shift type", "Location", "Status", "Unpaid break (mins)", "Payable hours", "Hourly rate", "Estimated", "Received", "Outstanding", "Payment status", "Provisional"];
 
 function rowValues(s: LocalShift) {
   const done = s.status === "completed";
@@ -42,8 +42,8 @@ export function buildCsv(shifts: LocalShift[], meta: ReportMeta) {
   const rows = reportRows(shifts, meta.from, meta.to);
   const t = summarise(shifts, meta.from, meta.to);
   const lines = [
-    ["DutyConnect PP earnings report"],
-    ["Officer", meta.officer],
+    ["DutyConnect earnings report"],
+    ["Name", meta.officer],
     ["Period", meta.label],
     ["Currency", meta.currency ?? "GBP"],
     ["Generated", new Date().toLocaleString("en-GB")],
@@ -79,7 +79,7 @@ h1{color:#0A192F;font-size:20px;margin:0}.sub{color:#6B7280;margin:4px 0 16px}
 th{background:#0A192F;color:#fff;text-align:left;padding:5px;font-size:9px}td{padding:5px;border-bottom:1px solid #E5E7EB;font-size:9px}
 .warn{background:#FEF3E2;color:#B45309;padding:8px;border-radius:6px;margin-bottom:12px}.foot{color:#6B7280;margin-top:16px}
 </style></head><body>
-<h1>DutyConnect PP earnings report</h1>
+<h1>DutyConnect earnings report</h1>
 <div class="sub">${esc(meta.officer)} · ${esc(meta.label)} · generated ${esc(new Date().toLocaleString("en-GB"))}</div>
 ${t.provisional ? `<div class="warn">${t.provisional} shift(s) have an unresolved payment edit clash. Figures are provisional until the correct payment is chosen.</div>` : ""}
 <div class="tot"><div><b>${t.completed}</b>Completed shifts</div><div><b>${t.hours.toFixed(2)}</b>Payable hours</div><div><b>${m(t.estimated)}</b>Estimated gross</div><div><b>${m(t.received)}</b>Received</div><div><b>${m(t.outstanding)}</b>Outstanding</div></div>
@@ -91,6 +91,29 @@ ${t.provisional ? `<div class="warn">${t.provisional} shift(s) have an unresolve
 
 function fileName(meta: ReportMeta, ext: string) {
   return `DutyConnect-report-${(meta.from ?? "all").replace(/[^0-9-]/g, "")}${meta.to ? `-to-${meta.to}` : ""}.${ext}`;
+}
+
+/** Save a JSON personal-data download and open the share sheet (web: download). Free on every plan. */
+export async function shareJson(data: unknown) {
+  const json = JSON.stringify(data, null, 2);
+  const name = `DutyConnect-my-data-${new Date().toISOString().slice(0, 10)}.json`;
+  if (Platform.OS === "web") {
+    const w: any = globalThis;
+    const a = w.document.createElement("a");
+    a.href = w.URL.createObjectURL(new w.Blob([json], { type: "application/json" }));
+    a.download = name;
+    a.click();
+    return;
+  }
+  const f = new File(Paths.cache, name);
+  if (f.exists) f.delete();
+  f.create();
+  f.write(json);
+  try {
+    await Sharing.shareAsync(f.uri, { mimeType: "application/json", dialogTitle: "Save my data" });
+  } finally {
+    if (f.exists) f.delete();
+  }
 }
 
 /** Generate the report and open the share sheet (web: download / print). */

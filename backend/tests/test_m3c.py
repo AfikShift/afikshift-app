@@ -164,7 +164,7 @@ class TestPublicPages:
 
     def test_privacy_mentions_retention_and_rights(self):
         t = requests.get(f"{API}/public/privacy").text
-        for s in ("90 days", "35 days", "ICO", "biometric", "prisoner"):
+        for s in ("90 days", "35 days", "ICO", "biometric", "other people"):  # Phase A: neutral wording
             assert s.lower() in t.lower()
 
 

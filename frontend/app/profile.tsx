@@ -11,7 +11,7 @@ import { Button, Card, SectionTitle, TextField, tap } from "@/src/components/ui"
 import { currencySymbol } from "@/src/format";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
-const CATEGORIES = ["Prison Officer", "Operational Support Grade", "Custodial Manager", "Security Officer", "Other"];
+const CATEGORIES = ["Healthcare", "Security", "Emergency services", "Logistics & warehouse", "Manufacturing", "Hospitality", "Transport", "Retail", "Other"];
 const CURRENCIES = ["GBP", "EUR", "USD"] as const;
 const PREFS: { key: keyof NotificationPrefs; label: string }[] = [
   { key: "shift_reminders", label: "Upcoming shift reminders" },
@@ -52,7 +52,7 @@ export default function Profile() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(user?.full_name ?? "");
-  const [category, setCategory] = useState(user?.professional_category ?? "Prison Officer");
+  const [category, setCategory] = useState(user?.professional_category ?? "Other");
   const [currency, setCurrency] = useState<(typeof CURRENCIES)[number]>(user?.currency ?? "GBP");
   const [rate, setRate] = useState(user?.hourly_rate != null ? String(user.hourly_rate) : "");
   const [prefs, setPrefs] = useState<NotificationPrefs>(
@@ -97,7 +97,7 @@ export default function Profile() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
       >
         <View style={styles.form}>
-          <TextField testID="profile-name-input" label="Full name" value={name} onChangeText={setName} error={errors.name} hint="Used to pre-fill the officer name on your shifts." />
+          <TextField testID="profile-name-input" label="Full name" value={name} onChangeText={setName} error={errors.name} hint="Used to pre-fill your name on your shifts." />
           <View style={styles.readonly}>
             <Text style={styles.label}>Email</Text>
             <Text style={styles.readonlyValue} testID="profile-email-text">
@@ -109,12 +109,12 @@ export default function Profile() {
         <SectionTitle>Professional category</SectionTitle>
         <Chips options={CATEGORIES} value={category} onChange={setCategory} testPrefix="profile-category" />
 
-        <SectionTitle>PP pay</SectionTitle>
+        <SectionTitle>Pay</SectionTitle>
         <View style={styles.form}>
           <Chips options={CURRENCIES} value={currency} onChange={setCurrency} testPrefix="profile-currency" />
           <TextField
             testID="profile-rate-input"
-            label="Fixed hourly PP rate"
+            label="Default hourly rate"
             prefix={currencySymbol(currency)}
             value={rate}
             onChangeText={setRate}

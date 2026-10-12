@@ -5,7 +5,8 @@ import { AppState, Platform } from "react-native";
 
 import { ApiError, request } from "@/src/api";
 import { useAuth } from "@/src/auth";
-import { Decision, Payment, PaymentStatus, ShiftData, estimatedEarnings, interval, mergeDecisions, mergePayments, payableHours, paymentGroups, paymentSummary } from "@/src/shifts/calc";
+import { useEntitlement } from "@/src/billing/entitlement";
+import { Decision, Payment, PaymentStatus, ShiftData, addDays, estimatedEarnings, toISODate, interval, mergeDecisions, mergePayments, payableHours, paymentGroups, paymentSummary } from "@/src/shifts/calc";
 import { loadEncrypted, saveEncrypted, shiftsKey } from "@/src/shifts/local-store";
 
 export type ServerShift = ShiftData & {
@@ -25,6 +26,8 @@ export type ServerShift = ShiftData & {
 
 export type LocalShift = ServerShift & {
   _sync: "pending" | "synced" | "conflict";
+  /** Free plan: over the active-shift limit; kept on this phone and re-sent until accepted. */
+  _held?: boolean;
   _change_id?: string;
   _server?: ServerShift | null; // server copy when a conflict is detected
 };
@@ -37,6 +40,10 @@ type Ctx = {
   ready: boolean;
   shifts: LocalShift[]; // visible (not deleted), sorted by start
   deleted: LocalShift[]; // Recently Deleted (within 90 days), newest first
+  allShifts: LocalShift[]; // every non-deleted record regardless of plan (exports, data download)
+  activeCount: number; // booked shifts dated today or later
+  atShiftLimit: boolean; // Free: 3 active/future shifts reached
+  heldCount: number;
   byId: (id: string) => LocalShift | undefined;
   syncState: SyncState;
   pendingCount: number;
@@ -61,6 +68,11 @@ type Ctx = {
 };
 
 const ShiftsContext = createContext<Ctx | null>(null);
+export const FREE_ACTIVE_SHIFTS = 3;
+const FREE_VISIBLE_DAYS = 7;
+export function isActiveFuture(s: Pick<LocalShift, "status" | "date" | "deleted">) {
+  return !s.deleted && s.status === "booked" && s.date >= toISODate(new Date());
+}
 const EMPTY: Persisted = { shifts: {}, since: null };
 export const DELETED_RETENTION_DAYS = 90;
 const RETENTION_MS = DELETED_RETENTION_DAYS * 86_400_000;
@@ -109,6 +121,7 @@ function fromServer(s: ServerShift): LocalShift {
 
 export function ShiftsProvider({ children }: { children: React.ReactNode }) {
   const { user, status } = useAuth();
+  const { isPro } = useEntitlement();
   const userId = status === "signedIn" ? user?.id : undefined;
   const [db, setDb] = useState<Persisted>(EMPTY);
   const [ready, setReady] = useState(false);
@@ -197,11 +210,13 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
                 shifts[r.id] = { ...local, ...data, ...withComputed(data), version: r.server.version };
               }
             } else if (r.status === "conflict") {
-              // Payments are merged automatically; only shift details await the officer's choice.
+              // Payments are merged automatically; only shift details await your choice.
               const data = mergeIn(local, r.server);
               shifts[r.id] = { ...local, ...data, ...withComputed(data), _sync: "conflict", _server: r.server };
             } else if (r.status === "rejected") {
               delete shifts[r.id];
+            } else if (r.status === "limit") {
+              shifts[r.id] = { ...local, _held: true }; // never discarded; retried on every sync
             }
           }
           for (const s of res.shifts) {
@@ -268,7 +283,11 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<Ctx>(() => {
     const all = Object.values(db.shifts);
-    const visible = all.filter((s) => !s.deleted).sort((a, b) => interval(a).start - interval(b).start);
+    const active = all.filter((s) => !s.deleted).sort((a, b) => interval(a).start - interval(b).start);
+    // Free: the normal interface shows the last 7 days of history; older records stay stored and synced.
+    const histCutoff = addDays(toISODate(new Date()), -FREE_VISIBLE_DAYS);
+    const visible = isPro ? active : active.filter((s) => s.date >= histCutoff);
+    const activeCount = active.filter((s) => isActiveFuture(s)).length;
     const cutoff = Date.now() - RETENTION_MS;
     const deleted = all.filter((s) => s.deleted && deletedTime(s) >= cutoff).sort((a, b) => deletedTime(b) - deletedTime(a));
     const pendingCount = all.filter((s) => s._sync === "pending").length;
@@ -287,7 +306,11 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
     return {
       ready,
       shifts: visible,
+      allShifts: active,
       deleted,
+      activeCount,
+      atShiftLimit: !isPro && activeCount >= FREE_ACTIVE_SHIFTS,
+      heldCount: all.filter((s) => s._held).length,
       byId: (id) => db.shifts[id],
       syncState,
       pendingCount,
@@ -418,7 +441,7 @@ export function ShiftsProvider({ children }: { children: React.ReactNode }) {
         });
       },
     };
-  }, [db, ready, syncing, failed, syncBlocked, online, lastSyncedAt, syncNow, write, commit, scheduleSync]);
+  }, [db, isPro, ready, syncing, failed, syncBlocked, online, lastSyncedAt, syncNow, write, commit, scheduleSync]);
 
   return <ShiftsContext.Provider value={value}>{children}</ShiftsContext.Provider>;
 }

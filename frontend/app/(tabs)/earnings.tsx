@@ -42,7 +42,7 @@ export default function Earnings() {
   const [anchor, setAnchor] = useState(toISODate(new Date()));
   const [exporting, setExporting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const range = periodRange(kind, anchor);
+  const range = isPro ? periodRange(kind, anchor) : periodRange("week", toISODate(new Date()));
   const t = useMemo(() => summarise(shifts, range.from, range.to), [shifts, range.from, range.to]);
   const paidPct = t.estimated > 0 ? Math.min(t.received / t.estimated, 1) : 0;
 
