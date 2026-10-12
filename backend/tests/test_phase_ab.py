@@ -1,5 +1,5 @@
 """Phases A + B: neutral shift types/templates, Free limits (3 active shifts, templates), free JSON
-data download, founding-member eligibility. Records are never discarded by plan limits."""
+data download. Records are never discarded by plan limits."""
 from datetime import date, timedelta
 
 import pytest
@@ -144,24 +144,3 @@ class TestDataDownload:
 
     def test_requires_login(self):
         assert requests.get(f"{API}/me/data-download").status_code == 401
-
-
-class TestFoundingOffer:
-    def test_eligible_until_first_subscription_and_counted(self, free_user, mongo_db):
-        uid, h, ref = free_user
-        assert requests.get(f"{API}/billing/entitlement", headers=h).json()["founding_eligible"] is True
-        tok = "tok-" + _uid()
-        google(mongo_db, tok, ref)
-        mongo_db.mock_play.update_one({"token": tok}, {"$set": {"response.lineItems.0.offerDetails": {"basePlanId": "monthly", "offerId": "founding"}}})
-        e = verify(h, tok, MONTHLY).json()
-        assert e["founding_eligible"] is False, "an account can only use the founding offer once"
-        assert mongo_db.subscriptions.find_one({"user_id": uid})["founding"] is True
-
-    def test_limit_of_200_enforced(self, free_user, mongo_db):
-        _, h, _ = free_user
-        fake = [{"token_hash": f"fake-{_uid()}", "user_id": f"fake-{i}", "founding": True, "state": "x"} for i in range(200)]
-        mongo_db.subscriptions.insert_many(fake)
-        try:
-            assert requests.get(f"{API}/billing/entitlement", headers=h).json()["founding_eligible"] is False
-        finally:
-            mongo_db.subscriptions.delete_many({"user_id": {"$regex": "^fake-"}})

@@ -118,3 +118,5 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Tests: tests/test_phase_d.py (5).
 
 - Founding offer changed: monthly £2.99 for first 6 months (was 12); annual £24.99 for first year (Play cannot do 6 months on a yearly plan). Prices unchanged.
+
+- PRICING CHANGE: plans are Monthly £3.99 and Six-month £19.99 (dutyconnect_pro_6month, ≈£3.33/mo, saves 17%). Annual plan and founding-member offer removed (backend, admin switch, app, docs).

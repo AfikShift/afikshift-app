@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-PROGRAMMES = {"referrals": True, "founding": True, "ambassadors": True}  # defaults: everything on
+PROGRAMMES = {"referrals": True, "ambassadors": True}  # defaults: everything on
 
 
 def now():
@@ -23,7 +23,6 @@ async def log_action(db, admin: dict, action: str, detail: str = ""):
 
 class ProgrammesIn(BaseModel):
     referrals: bool | None = None
-    founding: bool | None = None
     ambassadors: bool | None = None
 
 
@@ -50,7 +49,6 @@ def make_router(db, current_user) -> APIRouter:
             "members": members, "pro": pro, "free": members - pro,
             "new_this_week": await db.users.count_documents({"email_verified": True, "created_at": {"$gte": week}}),
             "ambassadors": await db.users.count_documents({"ambassador": True}),
-            "founding_members": len(await db.subscriptions.distinct("user_id", {"founding": True})),
             "referrals_waiting": await db.referrals.count_documents({"status": "awaiting_approval"}),
             "referrals_qualifying": await db.referrals.count_documents({"status": "paid"}),
             "referrals_held": await db.referrals.count_documents({"status": "held"}),

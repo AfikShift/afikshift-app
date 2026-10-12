@@ -12,6 +12,11 @@ import { Button } from "@/src/components/ui";
 import { endDate } from "@/src/format";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
+const perMonth = (p: { amount: number; currency: string }) =>
+  new Intl.NumberFormat("en-GB", { style: "currency", currency: p.currency }).format(Math.round((p.amount / 6) * 100) / 100);
+/** % saved on the six-month plan against paying monthly for six months. */
+const saving = (p: Prices) => Math.round((1 - p.sixmonth.amount / (6 * p.monthly.amount)) * 100);
+
 const ROWS: [string, boolean | string, boolean | string][] = [
   ["Shift calendar & offline recording", true, true],
   ["Upcoming shifts", "Up to 3", "Unlimited"],
@@ -31,19 +36,19 @@ export default function Upgrade() {
   const insets = useSafeAreaInsets();
   const styles = useStyles();
   const { colors } = useTheme();
-  const [plan, setPlan] = useState<PlanKey>("annual");
+  const [plan, setPlan] = useState<PlanKey>("sixmonth");
   const [prices, setPrices] = useState<Prices | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    loadPrices(!!ent?.founding_eligible).then((p) => setPrices(p ?? referencePrices(!!ent?.founding_eligible)));
-  }, [ent?.founding_eligible]);
+    loadPrices().then((p) => setPrices(p ?? referencePrices()));
+  }, []);
 
   const subscribe = async () => {
     if (!ent) return toast("Connect to the internet to subscribe", "error");
     setBusy(true);
     try {
-      await buy(plan, ent.account_ref, !!ent.founding_eligible); // Pro is granted only after the server verifies it with Google
+      await buy(plan, ent.account_ref); // Pro is granted only after the server verifies it with Google
     } catch (e) {
       toast((e as Error).message, "info");
     } finally {
@@ -110,19 +115,24 @@ export default function Upgrade() {
               value={plan}
               onChange={setPlan}
               options={[
-                { value: "monthly", label: prices ? `Monthly · ${prices.monthly.price}` : "Monthly" },
-                { value: "annual", label: prices ? `Annual · ${prices.annual.price}` : "Annual" },
+                { value: "monthly", label: "Monthly" },
+                { value: "sixmonth", label: "Six-month" },
               ]}
             />
-            {prices?.[plan].intro && (
-              <Text style={styles.offer} testID="upgrade-founding-offer">
-                Founding member price: {prices[plan].intro} for the first {plan === "annual" ? "year" : "6 months"}, then {prices[plan].price} per {plan === "annual" ? "year" : "month"}. Google Play
-                will show the exact terms before you confirm.
-              </Text>
+            {prices && (
+              <View style={styles.priceList} testID="upgrade-price-list">
+                <Text style={styles.priceLine} testID="upgrade-price-monthly">
+                  <Text style={styles.priceStrong}>Monthly:</Text> {prices.monthly.price} per month
+                </Text>
+                <Text style={styles.priceLine} testID="upgrade-price-sixmonth">
+                  <Text style={styles.priceStrong}>Six-month plan:</Text> {perMonth(prices.sixmonth)} per month ({prices.sixmonth.price} total)
+                  {saving(prices) > 0 ? ` — saves ${saving(prices)}%` : ""}
+                </Text>
+              </View>
             )}
             <Button
               testID="upgrade-subscribe-button"
-              label={prices ? `Subscribe – ${prices[plan].intro ?? prices[plan].price} per ${plan === "annual" ? "year" : "month"}` : "Subscribe"}
+              label={prices ? `Subscribe – ${prices[plan].price} ${plan === "sixmonth" ? "every 6 months" : "per month"}` : "Subscribe"}
               loading={busy}
               onPress={subscribe}
             />
@@ -161,5 +171,8 @@ const useStyles = makeStyles((c) => ({
   cellBox: { flex: 1, alignItems: "flex-start" },
   cellSmall: { fontFamily: fonts.medium, fontSize: type.sm, color: c.onSurfaceSecondary },
   offer: { fontFamily: fonts.semibold, fontSize: type.sm + 1, color: c.onSurface, backgroundColor: c.brandTertiary, borderRadius: radius.md, padding: spacing.md },
+  priceList: { gap: spacing.sm, paddingVertical: spacing.xs },
+  priceLine: { fontFamily: fonts.regular, fontSize: type.base, color: c.onSurface, lineHeight: 22 },
+  priceStrong: { fontFamily: fonts.bold, color: c.onSurface },
   note: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, lineHeight: 18 },
 }));

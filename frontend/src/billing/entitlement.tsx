@@ -19,7 +19,6 @@ export type Entitlement = {
   pass_expires_at: string;
   account_ref: string;
   mode: string;
-  founding_eligible?: boolean;
 };
 
 const KEY = "dc_entitlement_v1";

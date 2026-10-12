@@ -10,23 +10,22 @@ import { useToast } from "@/src/components/toast";
 import { Card, ListRow, SectionTitle } from "@/src/components/ui";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
-type Programmes = { referrals: boolean; founding: boolean; ambassadors: boolean };
+type Programmes = { referrals: boolean; ambassadors: boolean };
 type Overview = {
-  members: number; pro: number; free: number; new_this_week: number; ambassadors: number; founding_members: number;
+  members: number; pro: number; free: number; new_this_week: number; ambassadors: number;
   referrals_waiting: number; referrals_held: number; referrals_flagged: number; referrals_qualifying: number; rewards_this_month: number; programmes: Programmes;
 };
 type Activity = { at: string; admin_email: string; action: string; detail: string };
 
 const PROGRAMMES: { key: keyof Programmes; title: string; body: string }[] = [
   { key: "referrals", title: "Referral programme", body: "Off: hidden in the app and no new codes accepted. Rewards already earned can still be approved." },
-  { key: "founding", title: "Founding-member offer", body: "Off: new subscribers see the standard price only." },
   { key: "ambassadors", title: "Ambassador programme", body: "Off: ambassadors use the standard monthly reward limit." },
 ];
 const ACTION: Record<string, string> = {
   programme_on: "Switched on", programme_off: "Switched off", referral_approved: "Referral approved",
   referral_cancelled: "Referral cancelled", member_updated: "Member updated",
 };
-const NAME: Record<string, string> = { referrals: "Referral programme", founding: "Founding-member offer", ambassadors: "Ambassador programme" };
+const NAME: Record<string, string> = { referrals: "Referral programme", ambassadors: "Ambassador programme" };
 
 const confirm = (msg: string) =>
   Platform.OS === "web"
@@ -79,7 +78,7 @@ export default function AdminDashboard() {
     ? [
         ["Members", o.members], ["Pro", o.pro], ["Free", o.free], ["New this week", o.new_this_week],
         ["To approve", o.referrals_waiting], ["Held for review", o.referrals_held], ["Flagged", o.referrals_flagged], ["Qualifying", o.referrals_qualifying], ["Rewards this month", o.rewards_this_month],
-        ["Founding members", o.founding_members], ["Ambassadors", o.ambassadors],
+        ["Ambassadors", o.ambassadors],
       ]
     : [];
 

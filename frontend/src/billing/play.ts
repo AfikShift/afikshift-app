@@ -6,7 +6,7 @@ import { Platform } from "react-native";
 import { request } from "@/src/api";
 import { Entitlement } from "@/src/billing/entitlement";
 
-export const PRODUCTS = { monthly: "dutyconnect_pro_monthly", annual: "dutyconnect_pro_annual" } as const;
+export const PRODUCTS = { monthly: "dutyconnect_pro_monthly", sixmonth: "dutyconnect_pro_6month" } as const;
 export type PlanKey = keyof typeof PRODUCTS;
 
 export const billingAvailable = Platform.OS === "android" && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
@@ -41,46 +41,42 @@ export async function startBilling(onEntitlement: (e: Entitlement) => void, onEr
   });
 }
 
-export const FOUNDING_OFFER_ID = "founding";
-export type Prices = Record<PlanKey, { price: string; intro?: string }>;
+/** price: display string for the whole billing period; amount: number in `currency` (for per-month and saving). */
+export type Prices = Record<PlanKey, { price: string; amount: number; currency: string }>;
 
 /** UK list prices shown when Google Play can't be reached (web preview, Expo Go, offline). Google Play's price always wins. */
-export function referencePrices(foundingEligible: boolean): Prices {
+export function referencePrices(): Prices {
   return {
-    monthly: { price: "£3.99", intro: foundingEligible ? "£2.99" : undefined },
-    annual: { price: "£34.99", intro: foundingEligible ? "£24.99" : undefined },
+    monthly: { price: "£3.99", amount: 3.99, currency: "GBP" },
+    sixmonth: { price: "£19.99", amount: 19.99, currency: "GBP" },
   };
 }
 
-/** Prices and the founding offer exactly as Google Play returns them (nothing hard-coded). */
-export async function loadPrices(foundingEligible: boolean): Promise<Prices | null> {
+/** Prices exactly as Google Play returns them (nothing hard-coded). */
+export async function loadPrices(): Promise<Prices | null> {
   const m = iap();
   if (!m) return null;
   try {
     const list = await m.fetchProducts({ skus: Object.values(PRODUCTS), type: "subs" });
     const one = (id: string) => {
       const p = list?.find((x: any) => x.id === id);
-      if (!p) return null;
-      const offers: any[] = p.subscriptionOfferDetailsAndroid ?? [];
-      const founding = foundingEligible ? offers.find((o) => o.offerId === FOUNDING_OFFER_ID) : undefined;
-      return { price: p.displayPrice, intro: founding?.pricingPhases?.pricingPhaseList?.[0]?.formattedPrice };
+      return p ? { price: p.displayPrice, amount: Number(p.price), currency: p.currency } : null;
     };
     const monthly = one(PRODUCTS.monthly);
-    const annual = one(PRODUCTS.annual);
-    return monthly && annual ? { monthly, annual } : null;
+    const sixmonth = one(PRODUCTS.sixmonth);
+    return monthly && sixmonth ? { monthly, sixmonth } : null;
   } catch {
     return null;
   }
 }
 
-/** The server decides founding eligibility (first 200 new paying subscribers); only then is the offer requested. */
-export async function buy(plan: PlanKey, accountRef: string, foundingEligible: boolean) {
+export async function buy(plan: PlanKey, accountRef: string) {
   const m = iap();
   if (!m) throw new Error("Subscriptions are available in the Google Play version of DutyConnect.");
   const sku = PRODUCTS[plan];
   const [prod] = await m.fetchProducts({ skus: [sku], type: "subs" });
   const offers: any[] = prod?.subscriptionOfferDetailsAndroid ?? [];
-  const offer = (foundingEligible && offers.find((o) => o.offerId === FOUNDING_OFFER_ID)) || offers.find((o) => !o.offerId) || offers[0];
+  const offer = offers.find((o) => !o.offerId) || offers[0];
   await m.requestPurchase({
     request: { google: { skus: [sku], obfuscatedAccountIdAndroid: accountRef, subscriptionOffers: offer ? [{ sku, offerToken: offer.offerToken }] : [] } },
     type: "subs",

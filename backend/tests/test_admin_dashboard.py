@@ -21,7 +21,7 @@ def switch(h, **kw):
 def test_overview_totals_only(people):
     _, admin_h = people("Admin", admin=True)
     o = requests.get(f"{API}/admin/overview", headers=admin_h).json()
-    for k in ("members", "pro", "free", "new_this_week", "referrals_waiting", "rewards_this_month", "founding_members", "programmes"):
+    for k in ("members", "pro", "free", "new_this_week", "referrals_waiting", "rewards_this_month", "programmes"):
         assert k in o
     assert o["members"] == o["pro"] + o["free"] and "@" not in str(o), "no personal details"
 
@@ -37,7 +37,7 @@ def test_referrals_off_stops_new_codes_and_is_logged(people):
     _, admin_h = people("Admin", admin=True)
     _, ref_h = people("Referrer")
     _, friend_h = people("Friend")
-    assert requests.get(f"{API}/programmes").json() == {"referrals": True, "founding": True, "ambassadors": True}
+    assert requests.get(f"{API}/programmes").json() == {"referrals": True, "ambassadors": True}
     assert switch(admin_h, referrals=False)["referrals"] is False
     assert requests.get(f"{API}/programmes").json()["referrals"] is False
     r = apply(friend_h, me(ref_h)["code"])
@@ -49,12 +49,9 @@ def test_referrals_off_stops_new_codes_and_is_logged(people):
     assert apply(friend_h, me(ref_h)["code"]).status_code == 200
 
 
-def test_founding_off_and_ambassadors_off(people, mongo_db):
+def test_ambassadors_off(people, mongo_db):
     _, admin_h = people("Admin", admin=True)
     uid, h = people()
-    assert requests.get(f"{API}/billing/entitlement", headers=h).json()["founding_eligible"] is True
-    switch(admin_h, founding=False)
-    assert requests.get(f"{API}/billing/entitlement", headers=h).json()["founding_eligible"] is False
     mongo_db.users.update_one({"id": uid}, {"$set": {"ambassador": True}})
     assert me(h)["monthly_cap"] == 10
     switch(admin_h, ambassadors=False)

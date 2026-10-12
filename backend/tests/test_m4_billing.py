@@ -12,7 +12,7 @@ from conftest import API
 from test_m3b_safeguards import _drop_user, _make_user, _sync
 from test_payments_m3a import _change, _payment, _shift, _uid
 
-MONTHLY, ANNUAL = "dutyconnect_pro_monthly", "dutyconnect_pro_annual"
+MONTHLY, SIX_MONTH = "dutyconnect_pro_monthly", "dutyconnect_pro_6month"
 
 
 def _env(k):
@@ -142,11 +142,17 @@ class TestLifecycle:
         exp = requests.get(f"{API}/billing/entitlement", headers=h).json()["expires_at"]
         assert datetime.fromisoformat(exp) > datetime.now(timezone.utc) + timedelta(days=30)
 
-    def test_annual_plan(self, officer, mongo_db):
+    def test_six_month_plan(self, officer, mongo_db):
         _, h, _ = officer
-        self._pro(officer, mongo_db, product=ANNUAL, days=365)
+        self._pro(officer, mongo_db, product=SIX_MONTH, days=182)
         e = requests.get(f"{API}/billing/entitlement", headers=h).json()
-        assert e["product_id"] == ANNUAL and e["plan"] == "pro"
+        assert e["product_id"] == SIX_MONTH and e["plan"] == "pro"
+        assert "founding_eligible" not in e, "founding offer removed"
+
+    def test_annual_product_no_longer_accepted(self, officer):
+        _, h, _ = officer
+        r = requests.post(f"{API}/billing/verify", headers=h, json={"purchase_token": "tok-x", "product_id": "dutyconnect_pro_annual"})
+        assert r.status_code == 422
 
     def test_cancel_keeps_pro_until_paid_period_ends_then_free(self, officer, mongo_db):
         _, h, ref = officer
@@ -199,8 +205,8 @@ class TestLifecycle:
         uid, h, ref = officer
         old = self._pro(officer, mongo_db)
         new = "tok-" + _uid()
-        google(mongo_db, new, ref, product=ANNUAL, days=365, linked=old)
-        assert verify(h, new, ANNUAL).json()["product_id"] == ANNUAL
+        google(mongo_db, new, ref, product=SIX_MONTH, days=182, linked=old)
+        assert verify(h, new, SIX_MONTH).json()["product_id"] == SIX_MONTH
         subs = list(mongo_db.subscriptions.find({"user_id": uid}))
         assert len([s for s in subs if not s.get("replaced_by")]) == 1
 
