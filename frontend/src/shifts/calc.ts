@@ -148,6 +148,11 @@ export const STATUS_LABEL: Record<ShiftStatus, string> = { booked: "Booked", com
 export const PAYMENT_LABEL: Record<PaymentStatus, string> = { pending: "Pending", partially_paid: "Partially paid", paid: "Paid" };
 
 export const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Amount after the user's own tax % (display only; stored figures are always before tax). */
+export function afterTax(v: number, pct: number | null | undefined) {
+  return Math.round(v * (1 - (pct ?? 0) / 100) * 100) / 100;
+}
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PRISONER_NO_RE = /\b[A-Za-z]\d{4}[A-Za-z]{2}\b/;
 const SENSITIVE_WORDS_RE = /\b(prisoner|inmate|nomis|pnc|cell\s*\d+|wing\s*[a-z]?\d+)\b/i;

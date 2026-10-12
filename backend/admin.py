@@ -53,6 +53,8 @@ def make_router(db, current_user) -> APIRouter:
             "founding_members": len(await db.subscriptions.distinct("user_id", {"founding": True})),
             "referrals_waiting": await db.referrals.count_documents({"status": "awaiting_approval"}),
             "referrals_qualifying": await db.referrals.count_documents({"status": "paid"}),
+            "referrals_held": await db.referrals.count_documents({"status": "held"}),
+            "referrals_flagged": await db.referrals.count_documents({"flags.0": {"$exists": True}, "status": {"$nin": ["rewarded", "cancelled"]}}),
             "rewards_this_month": await db.referrals.count_documents({"status": "rewarded", "decided_at": {"$gte": month}}),
             "programmes": await get_programmes(db),
         }

@@ -13,7 +13,7 @@ import { Button } from "@/src/components/ui";
 import { ProPrompt } from "@/src/components/pro-prompt";
 import { useEntitlement } from "@/src/billing/entitlement";
 import { money } from "@/src/format";
-import { DUTY_LABEL, formatHours, toISODate } from "@/src/shifts/calc";
+import { DUTY_LABEL, afterTax, formatHours, toISODate } from "@/src/shifts/calc";
 import { useShifts } from "@/src/shifts/provider";
 import { PeriodKind, periodRange, stepPeriod, summarise } from "@/src/shifts/stats";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
@@ -107,6 +107,11 @@ export default function Earnings() {
           <Text style={styles.heroSub}>
             {money(t.received, cur)} received · {money(t.outstanding, cur)} not yet paid
           </Text>
+          {user?.tax_rate != null && (
+            <Text style={styles.heroSub} testID="earnings-after-tax">
+              After {user.tax_rate}% tax: {money(afterTax(t.estimated, user.tax_rate), cur)} estimated · {money(afterTax(t.outstanding, user.tax_rate), cur)} not yet paid
+            </Text>
+          )}
         </View>
 
         <View style={styles.card}>

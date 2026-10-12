@@ -4,6 +4,7 @@ export const REFERRAL_STATUS: Record<string, string> = {
   paid: "Subscribed – qualifying",
   awaiting_approval: "Qualified – being checked",
   approving: "Qualified – being checked",
+  held: "Held for review",
   rewarded: "Rewarded",
   cancelled: "Not eligible",
 };

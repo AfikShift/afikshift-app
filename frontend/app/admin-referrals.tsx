@@ -12,9 +12,9 @@ import { formatDateLong } from "@/src/shifts/calc";
 import { fonts, makeStyles, radius, spacing, type } from "@/src/theme";
 import { REFERRAL_STATUS } from "@/src/referrals";
 
-type Row = { id: string; status: string; referrer_email: string; friend_email: string; created_at: string; qualifies_at?: string; reason?: string; referrer_reward?: string; friend_reward?: string };
+type Row = { id: string; status: string; warnings?: string[]; referrer_email: string; friend_email: string; created_at: string; qualifies_at?: string; reason?: string; referrer_reward?: string; friend_reward?: string };
 type Member = { id: string; email: string; ambassador: boolean; referral_cap: number | null; monthly_cap: number; referral_code: string };
-type Filter = "awaiting_approval" | "paid" | "all";
+type Filter = "awaiting_approval" | "held" | "paid" | "all";
 
 const confirm = (msg: string) =>
   Platform.OS === "web"
@@ -105,6 +105,7 @@ export default function AdminReferrals() {
           }}
           options={[
             { value: "awaiting_approval", label: "To approve" },
+            { value: "held", label: "Held" },
             { value: "paid", label: "Qualifying" },
             { value: "all", label: "All" },
           ]}
@@ -124,11 +125,16 @@ export default function AdminReferrals() {
                 {r.qualifies_at ? ` · qualifies ${formatDateLong(r.qualifies_at.slice(0, 10))}` : ""}
               </Text>
               {!!r.reason && <Text style={styles.small}>Reason: {r.reason}</Text>}
+              {r.warnings?.map((w) => (
+                <Text key={w} style={styles.warn} testID={`admin-warning-${r.id}`}>
+                  ⚠ {w}
+                </Text>
+              ))}
               {!!r.referrer_reward && <Text style={styles.small}>Rewards: friend {r.friend_reward}, referrer {r.referrer_reward}</Text>}
-              {r.status === "awaiting_approval" && (
-                <Button testID={`admin-approve-${r.id}`} label="Approve rewards" loading={busyId === r.id} onPress={() => act(r, "approve")} />
+              {(r.status === "awaiting_approval" || r.status === "held") && (
+                <Button testID={`admin-approve-${r.id}`} label={r.status === "held" ? "Reviewed – approve rewards" : "Approve rewards"} loading={busyId === r.id} onPress={() => act(r, "approve")} />
               )}
-              {["signed_up", "paid", "awaiting_approval"].includes(r.status) && (
+              {["signed_up", "paid", "awaiting_approval", "held"].includes(r.status) && (
                 <Button testID={`admin-cancel-${r.id}`} label="Cancel referral" variant="ghost" disabled={busyId === r.id} onPress={() => act(r, "cancel")} />
               )}
             </Card>
@@ -170,4 +176,5 @@ const useStyles = makeStyles((c) => ({
   card: { gap: spacing.sm, padding: spacing.lg, borderRadius: radius.md },
   title: { fontFamily: fonts.semibold, fontSize: type.base, color: c.onSurface },
   small: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, lineHeight: 18 },
+  warn: { fontFamily: fonts.semibold, fontSize: type.sm, color: c.warning },
 }));

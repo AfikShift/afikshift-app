@@ -110,3 +110,9 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Off effects: referrals → hidden in app (Account row, register field), new codes rejected, earned rewards still approvable; founding → founding_eligible false; ambassadors → standard cap.
 - App: app/admin.tsx (Account → Admin dashboard) links to Referral admin. Personal details row no longer shows category.
 - Tests: 182 backend (178 + 4 tests/test_admin_dashboard.py). Note: approving a referral in UI tests can give delivered+t1 bonus_pro_until → reset plan free before pytest.
+
+## Phase D — ambassador tools + tax display
+- /referrals/me: this_month/all_time totals (signed_up, qualifying, qualified, rewarded) + rewards_left_this_month; shown as table on Refer a friend (Ambassador dashboard title for ambassadors).
+- Fraud flags on referrals: burst (>5 sign-ups on one code in 24h), similar_email (email_key: +tag, dots, trailing digits stripped), quick_refund (voided). Flagged referrals become status "held" on qualifying (members see "being checked"); admin Held filter with warnings; approve allowed from held. Overview: referrals_held, referrals_flagged.
+- users.tax_rate (0–60, clear_tax_rate): Personal details field; payments panel + Earnings hero show after-tax estimate/outstanding (display only).
+- Tests: tests/test_phase_d.py (5).

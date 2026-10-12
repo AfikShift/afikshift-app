@@ -13,7 +13,7 @@ import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme"
 type Programmes = { referrals: boolean; founding: boolean; ambassadors: boolean };
 type Overview = {
   members: number; pro: number; free: number; new_this_week: number; ambassadors: number; founding_members: number;
-  referrals_waiting: number; referrals_qualifying: number; rewards_this_month: number; programmes: Programmes;
+  referrals_waiting: number; referrals_held: number; referrals_flagged: number; referrals_qualifying: number; rewards_this_month: number; programmes: Programmes;
 };
 type Activity = { at: string; admin_email: string; action: string; detail: string };
 
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
   const stats: [string, number][] = o
     ? [
         ["Members", o.members], ["Pro", o.pro], ["Free", o.free], ["New this week", o.new_this_week],
-        ["To approve", o.referrals_waiting], ["Qualifying", o.referrals_qualifying], ["Rewards this month", o.rewards_this_month],
+        ["To approve", o.referrals_waiting], ["Held for review", o.referrals_held], ["Flagged", o.referrals_flagged], ["Qualifying", o.referrals_qualifying], ["Rewards this month", o.rewards_this_month],
         ["Founding members", o.founding_members], ["Ambassadors", o.ambassadors],
       ]
     : [];
@@ -101,7 +101,7 @@ export default function AdminDashboard() {
           </View>
 
           <Card style={styles.group}>
-            <ListRow testID="admin-open-referrals" icon="gift-outline" title="Referral admin" value={o.referrals_waiting ? `${o.referrals_waiting} to approve` : "Approve rewards"} onPress={() => router.push("/admin-referrals")} last />
+            <ListRow testID="admin-open-referrals" icon="gift-outline" title="Referral admin" value={o.referrals_waiting + o.referrals_held ? `${o.referrals_waiting + o.referrals_held} to review` : "Approve rewards"} onPress={() => router.push("/admin-referrals")} last />
           </Card>
 
           <SectionTitle>Programmes</SectionTitle>

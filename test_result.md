@@ -124,3 +124,6 @@
 
 ## Admin dashboard — main agent
 - New /admin screen (account-admin-row, admin-stat-*, admin-programme-<key>-switch, admin-open-referrals, admin-activity-<i>). Reset delivered+t1 bonus_pro_until/plan after referral UI tests.
+
+## Phase D — main agent
+- New: referral-totals / referral-month-* / referral-all-* / referral-rewards-left; admin Held filter (admin-filter-held), admin-warning-<id>; profile-tax-input; payments-after-tax; earnings-after-tax. Backend tests/test_phase_d.py (5). Running pytest while logged in on web sets sync_device on main user → unset before pytest.

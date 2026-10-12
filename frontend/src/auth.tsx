@@ -17,6 +17,7 @@ export type User = {
   shift_templates?: ShiftTemplate[];
   specialist_presets?: boolean;
   is_admin?: boolean;
+  tax_rate?: number | null;
   notification_prefs: NotificationPrefs;
   plan: string;
   features: Record<string, boolean>;

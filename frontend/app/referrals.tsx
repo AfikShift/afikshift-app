@@ -12,7 +12,8 @@ import { formatDateLong } from "@/src/shifts/calc";
 import { fonts, makeStyles, radius, spacing, type } from "@/src/theme";
 
 type Ref = { id: string; status: string; created_at: string; qualifies_at: string | null; referrer_reward: string | null };
-type Data = { enabled: boolean; code: string; monthly_cap: number; ambassador: boolean; can_apply_code: boolean; apply_window_days: number; my_referral_status: string | null; referrals: Ref[] };
+type Totals = { signed_up: number; qualifying: number; qualified: number; rewarded: number };
+type Data = { enabled: boolean; code: string; this_month: Totals; all_time: Totals; rewards_left_this_month: number; monthly_cap: number; ambassador: boolean; can_apply_code: boolean; apply_window_days: number; my_referral_status: string | null; referrals: Ref[] };
 
 
 const REWARD: Record<string, string> = { deferred: "1 free month added", bonus: "1 free month added", capped: "Monthly limit reached – no reward" };
@@ -82,6 +83,32 @@ export default function Referrals() {
           </View>
           <Button testID="referral-share-button" label="Share my code" icon="share-outline" onPress={share} />
 
+          <SectionTitle>{data.ambassador ? "Ambassador dashboard" : "Your results"}</SectionTitle>
+          <View style={styles.table} testID="referral-totals">
+            <View style={styles.tRow}>
+              <Text style={[styles.tCell, styles.tHead, { flex: 1.4 }]} />
+              <Text style={[styles.tCell, styles.tHead]}>This month</Text>
+              <Text style={[styles.tCell, styles.tHead]}>All time</Text>
+            </View>
+            {(
+              [
+                ["Signed up", "signed_up"],
+                ["Qualifying", "qualifying"],
+                ["Qualified", "qualified"],
+                ["Rewarded", "rewarded"],
+              ] as const
+            ).map(([label, k]) => (
+              <View key={k} style={styles.tRow}>
+                <Text style={[styles.tCell, { flex: 1.4 }]}>{label}</Text>
+                <Text style={styles.tCell} testID={`referral-month-${k}`}>{data.this_month[k]}</Text>
+                <Text style={styles.tCell} testID={`referral-all-${k}`}>{data.all_time[k]}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.small} testID="referral-rewards-left">
+            Rewards left this month: {data.rewards_left_this_month} of {data.monthly_cap}
+          </Text>
+
           {data.can_apply_code && (
             <Card style={styles.card}>
               <Text style={styles.title}>Have a friend's code?</Text>
@@ -136,4 +163,8 @@ const useStyles = makeStyles((c) => ({
   row: { flexDirection: "row", alignItems: "center", padding: spacing.lg, borderRadius: radius.md, backgroundColor: c.surfaceSecondary },
   title: { fontFamily: fonts.semibold, fontSize: type.base, color: c.onSurface },
   small: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, lineHeight: 18 },
+  table: { borderRadius: radius.md, borderWidth: 1, borderColor: c.border, backgroundColor: c.surfaceSecondary, overflow: "hidden" },
+  tRow: { flexDirection: "row", paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: c.divider },
+  tCell: { flex: 1, fontFamily: fonts.medium, fontSize: type.base, color: c.onSurface },
+  tHead: { fontFamily: fonts.bold, fontSize: type.sm, color: c.onSurfaceSecondary },
 }));

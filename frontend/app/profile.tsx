@@ -55,6 +55,7 @@ export default function Profile() {
   const [category, setCategory] = useState(user?.professional_category ?? "Other");
   const [currency, setCurrency] = useState<(typeof CURRENCIES)[number]>(user?.currency ?? "GBP");
   const [rate, setRate] = useState(user?.hourly_rate != null ? String(user.hourly_rate) : "");
+  const [tax, setTax] = useState(user?.tax_rate != null ? String(user.tax_rate) : "");
   const [prefs, setPrefs] = useState<NotificationPrefs>(
     user?.notification_prefs ?? { shift_reminders: true, payment_reminders: true, product_updates: false },
   );
@@ -64,12 +65,14 @@ export default function Profile() {
   const save = async () => {
     const r = rate.trim().replace(",", ".");
     const n = r === "" ? null : Number(r);
+    const tx = tax.trim() === "" ? null : Number(tax.trim().replace(",", "."));
     const e = {
       name: name.trim().length < 2 ? "Enter your full name." : null,
       rate: n !== null && (!isFinite(n) || n <= 0 || n > 500) ? "Enter a rate between 0.01 and 500." : null,
+      tax: tx !== null && (!isFinite(tx) || tx < 0 || tx > 60) ? "Enter a tax rate between 0 and 60%." : null,
     };
     setErrors(e);
-    if (e.name || e.rate) return;
+    if (e.name || e.rate || e.tax) return;
     setSaving(true);
     try {
       await updateProfile({
@@ -78,6 +81,7 @@ export default function Profile() {
         currency,
         notification_prefs: prefs,
         ...(n === null ? { clear_hourly_rate: true } : { hourly_rate: n }),
+        ...(tx === null ? { clear_tax_rate: true } : { tax_rate: tx }),
       });
       toast("Profile saved");
       router.back();
@@ -122,6 +126,16 @@ export default function Profile() {
             placeholder="e.g. 30.00"
             error={errors.rate}
             hint="Changing your rate only affects new shifts. Past shifts keep the rate applied at the time."
+          />
+          <TextField
+            testID="profile-tax-input"
+            label="Tax rate % (optional)"
+            value={tax}
+            onChangeText={setTax}
+            keyboardType="decimal-pad"
+            placeholder="e.g. 20"
+            error={errors.tax}
+            hint="Used to show after-tax amounts next to your earnings and payments. Leave blank to hide them."
           />
         </View>
 

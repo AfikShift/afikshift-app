@@ -11,7 +11,7 @@ import { useEntitlement } from "@/src/billing/entitlement";
 import { useToast } from "@/src/components/toast";
 import { Button, TextField } from "@/src/components/ui";
 import { currencySymbol, money } from "@/src/format";
-import { PAYMENT_LABEL, Payment, formatDateLong, paymentGroups, toISODate, validatePayment } from "@/src/shifts/calc";
+import { PAYMENT_LABEL, Payment, afterTax, formatDateLong, paymentGroups, toISODate, validatePayment } from "@/src/shifts/calc";
 import { LocalShift, useShifts } from "@/src/shifts/provider";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
@@ -89,6 +89,12 @@ export function PaymentsPanel({ shift }: { shift: LocalShift }) {
           danger={out != null && out < 0}
         />
       </View>
+      {user?.tax_rate != null && shift.estimated_earnings != null && (
+        <Text style={styles.hint} testID="payments-after-tax">
+          After {user.tax_rate}% tax: {money(afterTax(shift.estimated_earnings, user.tax_rate), cur)} estimated
+          {out != null && out > 0 ? ` · ${money(afterTax(out, user.tax_rate), cur)} outstanding` : ""}
+        </Text>
+      )}
 
       {groups
         .filter((g) => g.kind !== "none" || g.pending)

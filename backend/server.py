@@ -179,6 +179,7 @@ class UserOut(BaseModel):
     shift_templates: list = []
     specialist_presets: bool = False
     is_admin: bool = False
+    tax_rate: Optional[float] = None
     plan: str
     features: dict
     email_verified: bool
@@ -191,7 +192,7 @@ class UserOut(BaseModel):
                    currency=d.get("currency", "GBP"), hourly_rate=d.get("hourly_rate"),
                    notification_prefs=NotificationPrefs(**d.get("notification_prefs", {})),
                    shift_templates=d.get("shift_templates", []),
-                   specialist_presets=d.get("specialist_presets", False), is_admin=bool(d.get("is_admin")),
+                   specialist_presets=d.get("specialist_presets", False), is_admin=bool(d.get("is_admin")), tax_rate=d.get("tax_rate"),
                    plan=d.get("plan", "free"), features=PLAN_FEATURES[d.get("plan", "free")],
                    email_verified=d.get("email_verified", False), created_at=d["created_at"])
 
@@ -235,6 +236,8 @@ class ProfileUpdate(BaseModel):
     currency: Optional[Literal["GBP", "EUR", "USD"]] = None
     hourly_rate: Optional[float] = Field(default=None, gt=0, le=500)
     clear_hourly_rate: bool = False
+    tax_rate: Optional[float] = Field(default=None, ge=0, le=60)  # % used only to show after-tax estimates
+    clear_tax_rate: bool = False
     notification_prefs: Optional[NotificationPrefs] = None
     shift_templates: Optional[list[TemplateIn]] = Field(default=None, max_length=50)
     # Optional built-in Bed Watch / Constant Watch presets (display setting only; not custom templates).
@@ -445,9 +448,11 @@ async def get_me(user: dict = Depends(current_user)):
 
 @api.patch("/me", response_model=UserOut)
 async def update_me(body: ProfileUpdate, user: dict = Depends(current_user)):
-    updates = body.model_dump(exclude_none=True, exclude={"clear_hourly_rate"})
+    updates = body.model_dump(exclude_none=True, exclude={"clear_hourly_rate", "clear_tax_rate"})
     if body.clear_hourly_rate:
         updates["hourly_rate"] = None
+    if body.clear_tax_rate:
+        updates["tax_rate"] = None
     if "shift_templates" in updates:
         limit = PLAN_FEATURES.get(user.get("plan", "free"), PLAN_FEATURES["free"])["custom_templates"]
         old = len(user.get("shift_templates", []))
@@ -857,7 +862,7 @@ async def data_download(user: dict = Depends(current_user)):
             if isinstance(sh.get(k), datetime):
                 sh[k] = sh[k].isoformat()
     profile = {k: user.get(k) for k in ("email", "full_name", "professional_category", "currency", "hourly_rate",
-                                        "notification_prefs", "shift_templates", "specialist_presets", "plan", "referral_code")}
+                                        "notification_prefs", "shift_templates", "specialist_presets", "tax_rate", "plan", "referral_code")}
     subs = await db.subscriptions.find({"user_id": user["id"]}, {"_id": 0, "product_id": 1, "state": 1, "expiry": 1}).to_list(50)
     return {"format": "DutyConnect personal data v1", "generated_at": now().isoformat(), "profile": profile,
             "shifts": shifts, "subscriptions": [{**x, "expiry": x["expiry"].isoformat() if x.get("expiry") else None} for x in subs]}
