@@ -124,8 +124,12 @@ export const BUILTIN_TYPES: { id: string; label: string }[] = [
   { id: "extra", label: "Extra shift" },
   { id: "other", label: "Other" },
 ];
-// Types used by records created before shift types became configurable (kept so no record changes).
-const LEGACY_LABEL: Record<string, string> = { bed_watch: "Bed Watch", constant_watch: "Constant Watch" };
+/** Optional built-in specialist presets (original ids kept). Hidden unless the user turns them on; never count as custom templates. */
+export const SPECIALIST_TYPES: { id: string; label: string }[] = [
+  { id: "bed_watch", label: "Bed Watch" },
+  { id: "constant_watch", label: "Constant Watch" },
+];
+const LEGACY_LABEL: Record<string, string> = Object.fromEntries(SPECIALIST_TYPES.map((t) => [t.id, t.label]));
 let customTemplates: ShiftTemplate[] = [];
 /** Called when the profile loads so labels everywhere (cards, reports) use the user's own names. */
 export function setCustomTemplates(t: ShiftTemplate[] | undefined) {

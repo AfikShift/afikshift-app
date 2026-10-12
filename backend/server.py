@@ -175,6 +175,7 @@ class UserOut(BaseModel):
     hourly_rate: Optional[float]
     notification_prefs: NotificationPrefs
     shift_templates: list = []
+    specialist_presets: bool = False
     plan: str
     features: dict
     email_verified: bool
@@ -187,6 +188,7 @@ class UserOut(BaseModel):
                    currency=d.get("currency", "GBP"), hourly_rate=d.get("hourly_rate"),
                    notification_prefs=NotificationPrefs(**d.get("notification_prefs", {})),
                    shift_templates=d.get("shift_templates", []),
+                   specialist_presets=d.get("specialist_presets", False),
                    plan=d.get("plan", "free"), features=PLAN_FEATURES[d.get("plan", "free")],
                    email_verified=d.get("email_verified", False), created_at=d["created_at"])
 
@@ -231,6 +233,8 @@ class ProfileUpdate(BaseModel):
     clear_hourly_rate: bool = False
     notification_prefs: Optional[NotificationPrefs] = None
     shift_templates: Optional[list[TemplateIn]] = Field(default=None, max_length=50)
+    # Optional built-in Bed Watch / Constant Watch presets (display setting only; not custom templates).
+    specialist_presets: Optional[bool] = None
 
     @field_validator("professional_category")
     @classmethod
@@ -841,7 +845,7 @@ async def data_download(user: dict = Depends(current_user)):
             if isinstance(sh.get(k), datetime):
                 sh[k] = sh[k].isoformat()
     profile = {k: user.get(k) for k in ("email", "full_name", "professional_category", "currency", "hourly_rate",
-                                        "notification_prefs", "shift_templates", "plan")}
+                                        "notification_prefs", "shift_templates", "specialist_presets", "plan")}
     subs = await db.subscriptions.find({"user_id": user["id"]}, {"_id": 0, "product_id": 1, "state": 1, "expiry": 1}).to_list(50)
     return {"format": "DutyConnect personal data v1", "generated_at": now().isoformat(), "profile": profile,
             "shifts": shifts, "subscriptions": [{**x, "expiry": x["expiry"].isoformat() if x.get("expiry") else None} for x in subs]}

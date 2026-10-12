@@ -91,3 +91,8 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - A: neutral branding (tagline "Know your shifts. Track your earnings. Stay in control."), no prison/HMPPS/PP wording in UI, emails, reports, legal pages, docs; built-in shift types standard/overtime/extra/other; legacy bed_watch/constant_watch still valid (records unchanged); custom templates (users.shift_templates, app/templates.tsx); legacy categories migrated at startup.
 - B: Free = 3 active/future shifts (server "limit" status, app keeps `_held` record, auto-retries), 7-day visible history (provider filter; allShifts for downloads), 1 payment/shift, current-week earnings, 1 template, CSV+PDF Pro-only, free JSON GET /api/me/data-download (1 per 7 days; support fallback). Pro £3.99/£34.99 configured in Play (no hard-coded prices); founding offer id "founding" for first 200 new subscribers (server founding_eligible).
 - Tests: 160/160 backend serial (145 + 15 tests/test_phase_ab.py); frontend iterations 8–9 pass.
+
+## Corrective update — Specialist presets (A+B correction, preview only)
+- Bed Watch / Constant Watch restored as optional built-in presets (ids bed_watch / constant_watch, colours and calculations unchanged). Hidden by default; toggle in Account → Shift templates (`users.specialist_presets`, synced via /api/me, in data download). Not counted as custom templates; shifts still count towards Free 3-active limit. Existing records always selectable/editable even when off.
+- PP (Payment Plus) = original name of shift/payments section; all payment features retained; not a duty type.
+- Tests: 167/167 backend serial (160 + 7 tests/test_specialist_presets.py). Targeted UI check pass.

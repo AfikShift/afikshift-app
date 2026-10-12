@@ -1,6 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ApiError, request } from "@/src/api";
@@ -28,6 +28,18 @@ export default function Templates() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const canAdd = isPro || list.length < 1;
+  const presetsOn = !!user?.specialist_presets;
+  const togglePresets = async () => {
+    setBusy(true);
+    try {
+      await request("/me", { method: "PATCH", body: { specialist_presets: !presetsOn } });
+      await refreshUser();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const save = async (next: ShiftTemplate[]) => {
     setBusy(true);
@@ -95,6 +107,20 @@ export default function Templates() {
           <ProPrompt testID="templates-pro-prompt" title="Unlimited templates with Pro" body="Free includes one custom template. Existing templates are always kept." />
         )}
         <Text style={styles.sub}>Built-in types: Standard shift, Overtime, Extra shift and Other.</Text>
+        <Pressable
+          testID="specialist-presets-toggle"
+          accessibilityRole="switch"
+          accessibilityState={{ checked: presetsOn }}
+          disabled={busy}
+          onPress={togglePresets}
+          style={styles.row}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name}>Specialist presets</Text>
+            <Text style={styles.sub}>Adds Bed Watch and Constant Watch to the shift type list. Optional and included on every plan. Turning this off never changes existing shifts.</Text>
+          </View>
+          <Switch value={presetsOn} onValueChange={togglePresets} disabled={busy} trackColor={{ true: colors.brandSecondary, false: colors.border }} />
+        </Pressable>
       </ScrollView>
     </View>
   );

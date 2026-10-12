@@ -15,6 +15,7 @@ export type User = {
   currency: "GBP" | "EUR" | "USD";
   hourly_rate: number | null;
   shift_templates?: ShiftTemplate[];
+  specialist_presets?: boolean;
   notification_prefs: NotificationPrefs;
   plan: string;
   features: Record<string, boolean>;

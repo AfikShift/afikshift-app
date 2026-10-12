@@ -16,6 +16,7 @@ import { currencySymbol, money } from "@/src/format";
 import {
   DUTY_LABEL,
   BUILTIN_TYPES,
+  SPECIALIST_TYPES,
   getCustomTemplates,
   DutyType,
   ShiftData,
@@ -150,7 +151,7 @@ export default function ShiftForm() {
             const t = getCustomTemplates().find((x) => x.id === v); // a template pre-fills its times
             if (t?.start_time && t.end_time) setF((p) => ({ ...p, duty_type: v, start_time: t.start_time!, end_time: t.end_time!, break_minutes: t.break_minutes ?? p.break_minutes }));
           }}
-          options={[...BUILTIN_TYPES, ...getCustomTemplates(), ...(typeOptionsExtra(f.duty_type))].map((k) => ({ value: k.id, label: k.label }))}
+          options={typeOptions(f.duty_type, !!user?.specialist_presets).map((k) => ({ value: k.id, label: k.label }))}
         />
         <View style={{ height: spacing.md }} />
         <Segmented<ShiftPeriod>
@@ -299,9 +300,10 @@ export default function ShiftForm() {
   );
 }
 
-/** Keep a legacy/removed type selectable on records that already use it (nothing is changed silently). */
-function typeOptionsExtra(id: string) {
-  return [...BUILTIN_TYPES, ...getCustomTemplates()].some((t) => t.id === id) ? [] : [{ id, label: DUTY_LABEL[id] }];
+/** Built-in + custom (+ specialist presets when turned on). A type already on the record always stays selectable. */
+function typeOptions(id: string, specialist: boolean) {
+  const opts = [...BUILTIN_TYPES, ...getCustomTemplates(), ...(specialist ? SPECIALIST_TYPES : [])];
+  return opts.some((t) => t.id === id) ? opts : [...opts, { id, label: DUTY_LABEL[id] }];
 }
 
 const useStyles = makeStyles((c) => ({
