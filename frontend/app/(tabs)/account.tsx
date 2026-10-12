@@ -1,7 +1,7 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/src/auth";
@@ -28,6 +28,12 @@ export default function Account() {
   const { colors } = useTheme();
   const bottom = useTabBottomPadding();
   const { shifts, deleted } = useShifts();
+  const [programmes, setProgrammes] = useState({ referrals: true });
+  useFocusEffect(
+    useCallback(() => {
+      request("/programmes", { auth: false }).then(setProgrammes).catch(() => {});
+    }, []),
+  );
   const { isPro, ent, apply } = useEntitlement();
   const [exporting, setExporting] = useState(false);
   const rate = user?.hourly_rate != null ? `${currencySymbol(user.currency)}${user.hourly_rate.toFixed(2)}/hr` : "Not set";
@@ -58,11 +64,13 @@ export default function Account() {
 
         <SectionTitle>Profile</SectionTitle>
         <Card style={styles.group}>
-          <ListRow testID="account-edit-profile-row" icon="person-outline" title="Personal details" value={user?.professional_category} onPress={() => router.push("/profile")} />
+          <ListRow testID="account-edit-profile-row" icon="person-outline" title="Personal details" onPress={() => router.push("/profile")} />
           <ListRow testID="account-rate-row" icon="cash-outline" title="Default hourly rate" value={rate} onPress={() => router.push("/profile")} />
-          <ListRow testID="account-referrals-row" icon="gift-outline" title="Refer a friend" value="Free Pro months" onPress={() => router.push("/referrals")} last={!user?.is_admin} />
+          {programmes.referrals && (
+            <ListRow testID="account-referrals-row" icon="gift-outline" title="Refer a friend" value="Free Pro months" onPress={() => router.push("/referrals")} last={!user?.is_admin} />
+          )}
           {user?.is_admin && (
-            <ListRow testID="account-admin-referrals-row" icon="settings-outline" title="Referral admin" value="Approve rewards" onPress={() => router.push("/admin-referrals")} last />
+            <ListRow testID="account-admin-row" icon="settings-outline" title="Admin dashboard" value="Overview & programmes" onPress={() => router.push("/admin")} last />
           )}
         </Card>
 

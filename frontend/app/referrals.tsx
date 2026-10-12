@@ -12,7 +12,7 @@ import { formatDateLong } from "@/src/shifts/calc";
 import { fonts, makeStyles, radius, spacing, type } from "@/src/theme";
 
 type Ref = { id: string; status: string; created_at: string; qualifies_at: string | null; referrer_reward: string | null };
-type Data = { code: string; monthly_cap: number; ambassador: boolean; can_apply_code: boolean; apply_window_days: number; my_referral_status: string | null; referrals: Ref[] };
+type Data = { enabled: boolean; code: string; monthly_cap: number; ambassador: boolean; can_apply_code: boolean; apply_window_days: number; my_referral_status: string | null; referrals: Ref[] };
 
 
 const REWARD: Record<string, string> = { deferred: "1 free month added", bonus: "1 free month added", capped: "Monthly limit reached – no reward" };
@@ -61,6 +61,10 @@ export default function Referrals() {
       <StackHeader title="Refer a friend" />
       {!data ? (
         <ActivityIndicator style={{ marginTop: spacing.xl }} />
+      ) : !data.enabled ? (
+        <Text style={[styles.small, { padding: spacing.lg }]} testID="referrals-paused">
+          The referral programme is paused at the moment. Rewards you have already earned are not affected.
+        </Text>
       ) : (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}

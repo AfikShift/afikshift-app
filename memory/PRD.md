@@ -104,3 +104,9 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Rewards (billing.grant_free_month): active auto-renewing subscriber → Google subscriptions:defer 30 days; else users.bonus_pro_until (stacking). refresh_plan treats bonus as Pro; voided RTDN marks sub voided.
 - App: Account → Refer a friend (app/referrals.tsx: code, share, add code, statuses, rules); Referral admin (app/admin-referrals.tsx) for admins; register referral field. Upgrade page shows UK reference prices when Play unavailable.
 - Tests: 178/178 backend serial (167 + 11 tests/test_referrals.py).
+
+## Admin dashboard (Phase C add-on)
+- backend/admin.py: GET /api/programmes (public flags), GET /api/admin/overview (totals only), PATCH /api/admin/programmes (referrals/founding/ambassadors; settings._id=programmes), GET /api/admin/activity (admin_log, 1-year TTL). Referral approve/cancel/member edits logged.
+- Off effects: referrals → hidden in app (Account row, register field), new codes rejected, earned rewards still approvable; founding → founding_eligible false; ambassadors → standard cap.
+- App: app/admin.tsx (Account → Admin dashboard) links to Referral admin. Personal details row no longer shows category.
+- Tests: 182 backend (178 + 4 tests/test_admin_dashboard.py). Note: approving a referral in UI tests can give delivered+t1 bonus_pro_until → reset plan free before pytest.

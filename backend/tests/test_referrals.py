@@ -24,6 +24,9 @@ def people(mongo_db):
 
     yield make
     for uid in made:
+        u = mongo_db.users.find_one({"id": uid}, {"email": 1})
+        if u:
+            mongo_db.admin_log.delete_many({"admin_email": u["email"]})
         _drop_user(mongo_db, uid)
         mongo_db.subscriptions.delete_many({"user_id": uid})
         mongo_db.referrals.delete_many({"$or": [{"referrer_id": uid}, {"friend_id": uid}]})

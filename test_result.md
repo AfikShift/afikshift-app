@@ -121,3 +121,6 @@
 ## Phase C — main agent
 - Backend 178/178 serial (167 + 11 tests/test_referrals.py). Admins via ADMIN_EMAILS (delivered+t1@resend.dev is admin).
 - Frontend to test: Account rows account-referrals-row / account-admin-referrals-row; /referrals (referral-code, referral-share-button, referral-apply-input/button); /admin-referrals (admin-filter-*, admin-approve-<id>, admin-cancel-<id>, admin-member-email/find/ambassador/cap/cap-save); register-referral-input; upgrade page shows £3.99/£34.99 (founding £2.99/£24.99).
+
+## Admin dashboard — main agent
+- New /admin screen (account-admin-row, admin-stat-*, admin-programme-<key>-switch, admin-open-referrals, admin-activity-<i>). Reset delivered+t1 bonus_pro_until/plan after referral UI tests.

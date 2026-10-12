@@ -1,8 +1,9 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
+import { request } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { AuthShell } from "@/src/components/auth-shell";
 import { Button, TextField } from "@/src/components/ui";
@@ -21,6 +22,12 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [consent, setConsent] = useState(false);
   const [referral, setReferral] = useState("");
+  const [referralsOn, setReferralsOn] = useState(false);
+  useEffect(() => {
+    request("/programmes", { auth: false })
+      .then((p) => setReferralsOn(!!p.referrals))
+      .catch(() => {});
+  }, []);
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(false);
 
@@ -85,6 +92,7 @@ export default function Register() {
         error={errors.password}
         hint="10+ characters with letters and numbers."
       />
+      {referralsOn && (
       <TextField
         testID="register-referral-input"
         label="Referral code (optional)"
@@ -94,6 +102,7 @@ export default function Register() {
         placeholder="e.g. 7KQ2MXRP"
         hint="Got a code from a friend? You'll both get a free month of Pro after your first paid month."
       />
+      )}
       <Pressable testID="register-consent-checkbox" onPress={() => setConsent((v) => !v)} style={styles.consent} hitSlop={4}>
         <View style={[styles.box, consent && { backgroundColor: colors.brandSecondary, borderColor: colors.brandSecondary }]}>
           {consent && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}

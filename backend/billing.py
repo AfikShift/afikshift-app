@@ -223,7 +223,8 @@ def make_router(db, current_user, logger) -> APIRouter:
     async def founding_eligible(uid: str) -> bool:
         """First FOUNDING_LIMIT paying subscribers who have never subscribed before. The app only requests
         the founding offer when this is true; Google applies the price and the move to the standard price."""
-        if await db.subscriptions.find_one({"user_id": uid}):
+        from admin import get_programmes
+        if not (await get_programmes(db))["founding"] or await db.subscriptions.find_one({"user_id": uid}):
             return False
         return len(await db.subscriptions.distinct("user_id", {"founding": True})) < FOUNDING_LIMIT
 

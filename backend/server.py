@@ -27,6 +27,7 @@ from public_pages import router as public_router  # noqa: E402
 from security import install_security  # noqa: E402
 from billing import make_router as make_billing_router  # noqa: E402
 from referrals import make_router as make_referrals_router  # noqa: E402
+from admin import make_router as make_admin_router  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("dutyconnect")
@@ -836,6 +837,7 @@ billing_router = make_billing_router(db, current_user, logger)
 app.include_router(billing_router)
 referral_router = make_referrals_router(db, current_user, billing_router, logger)
 app.include_router(referral_router)
+app.include_router(make_admin_router(db, current_user))
 install_security(app, client_ip)
 
 
@@ -902,6 +904,7 @@ async def startup():
     # Deletion log outlives the longest backup so restores can re-apply deletions.
     await db.deletion_log.create_index("deleted_at", expireAfterSeconds=DELETION_LOG_DAYS * 86400)
     await db.referrals.create_index("id", unique=True)
+    await db.admin_log.create_index("at", expireAfterSeconds=365 * 86400)
     await db.referrals.create_index("friend_id", unique=True)
     await db.referrals.create_index([("referrer_id", 1), ("created_at", -1)])
     await db.users.create_index("referral_code", unique=True, partialFilterExpression={"referral_code": {"$type": "string"}})

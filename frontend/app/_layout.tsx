@@ -60,6 +60,7 @@ function AppStack() {
         <Stack.Screen name="upgrade" options={{ presentation: "card" }} />
         <Stack.Screen name="templates" options={{ presentation: "card" }} />
         <Stack.Screen name="referrals" options={{ presentation: "card" }} />
+        <Stack.Screen name="admin" options={{ presentation: "card" }} />
         <Stack.Screen name="admin-referrals" options={{ presentation: "card" }} />
       </Stack>
       {status === "signedIn" && locked && (

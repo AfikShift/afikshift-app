@@ -20,6 +20,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from admin import get_programmes, log_action
 from billing import aware
 
 QUALIFY_DAYS = 30
@@ -33,6 +34,7 @@ ERRORS = {
     "own_code": "You can't use your own referral code.",
     "already_referred": "A referral code has already been added to this account.",
     "already_subscribed": "Referral codes can only be added before your first subscription.",
+    "programme_off": "The referral programme is paused at the moment.",
     "too_late": f"Referral codes can only be added within {APPLY_WINDOW_DAYS} days of creating your account.",
 }
 
@@ -71,6 +73,8 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
     async def apply_code(friend: dict, code: str) -> Optional[str]:
         """Link a new account to a referrer. Returns an error key, or None when linked."""
         code = code.strip().upper()
+        if not (await get_programmes(db))["referrals"]:
+            return "programme_off"
         if friend.get("referred_by"):
             return "already_referred"
         if await db.subscriptions.find_one({"user_id": friend["id"]}):
@@ -105,10 +109,10 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
             update = {"status": "awaiting_approval"} if ok else {"status": "cancelled", "reason": "Payment refunded or paid month not completed"}
             await db.referrals.update_one({"id": rec["id"], "status": "paid"}, {"$set": {**update, "checked_at": now()}})
 
-    def cap_of(user: dict) -> int:
+    def cap_of(user: dict, ambassadors_on: bool = True) -> int:
         if user.get("referral_cap") is not None:
             return user["referral_cap"]
-        return AMBASSADOR_CAP if user.get("ambassador") else DEFAULT_CAP
+        return AMBASSADOR_CAP if user.get("ambassador") and ambassadors_on else DEFAULT_CAP
 
     async def admin_user(user: dict = Depends(current_user)) -> dict:
         if not user.get("is_admin"):
@@ -122,10 +126,12 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
         code = await ensure_code(user)
         recs = await db.referrals.find({"referrer_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(200)
         mine = await db.referrals.find_one({"friend_id": user["id"]}, {"_id": 0, "status": 1, "friend_reward": 1})
-        can_apply = (not user.get("referred_by") and not await db.subscriptions.find_one({"user_id": user["id"]})
+        progs = await get_programmes(db)
+        can_apply = (progs["referrals"] and not user.get("referred_by") and not await db.subscriptions.find_one({"user_id": user["id"]})
                      and aware(user["created_at"]) >= now() - timedelta(days=APPLY_WINDOW_DAYS))
         return {
-            "code": code, "monthly_cap": cap_of(user), "ambassador": bool(user.get("ambassador")),
+            "enabled": progs["referrals"], "code": code, "monthly_cap": cap_of(user, progs["ambassadors"]),
+            "ambassador": bool(user.get("ambassador")) and progs["ambassadors"],
             "can_apply_code": can_apply, "apply_window_days": APPLY_WINDOW_DAYS,
             "my_referral_status": mine and mine["status"],
             # Friends are never identified to the referrer (privacy): only status and dates.
@@ -167,13 +173,15 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
             month_start = now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             used = await db.referrals.count_documents({"referrer_id": rec["referrer_id"], "referrer_reward": {"$in": ["deferred", "bonus"]},
                                                        "decided_at": {"$gte": month_start}})
-            referrer_reward = "capped" if not referrer or used >= cap_of(referrer) else await billing.grant_free_month(rec["referrer_id"])
+            amb_on = (await get_programmes(db))["ambassadors"]
+            referrer_reward = "capped" if not referrer or used >= cap_of(referrer, amb_on) else await billing.grant_free_month(rec["referrer_id"])
         except Exception:
             await db.referrals.update_one({"id": rid}, {"$set": {"status": "awaiting_approval"}})
             logger.exception("Referral reward failed")
             raise HTTPException(502, "Reward could not be applied. Nothing was granted; try again.")
         await db.referrals.update_one({"id": rid}, {"$set": {"status": "rewarded", "friend_reward": friend_reward,
                                                              "referrer_reward": referrer_reward, "decided_at": now(), "decided_by": admin["id"]}})
+        await log_action(db, admin, "referral_approved", f"friend {friend_reward}, referrer {referrer_reward}")
         return {"ok": True, "friend_reward": friend_reward, "referrer_reward": referrer_reward}
 
     @r.post("/admin/referrals/{rid}/cancel")
@@ -182,6 +190,7 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
             "status": "cancelled", "reason": body.reason.strip() or "Cancelled by admin", "decided_at": now(), "decided_by": admin["id"]}})
         if not res.modified_count:
             raise HTTPException(409, "This referral can no longer be cancelled")
+        await log_action(db, admin, "referral_cancelled", body.reason.strip() or "Cancelled by admin")
         return {"ok": True}
 
     @r.get("/admin/members")
@@ -193,7 +202,7 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
                 "monthly_cap": cap_of(u), "referral_code": await ensure_code(u)}
 
     @r.patch("/admin/members/{uid}")
-    async def set_member(uid: str, body: AmbassadorIn, _: dict = Depends(admin_user)):
+    async def set_member(uid: str, body: AmbassadorIn, admin: dict = Depends(admin_user)):
         upd, unset = {}, {}
         if body.ambassador is not None:
             upd["ambassador"] = body.ambassador
@@ -205,6 +214,7 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
         if not ops or not (await db.users.update_one({"id": uid}, ops)).matched_count:
             raise HTTPException(404, "No change made")
         u = await db.users.find_one({"id": uid}, {"_id": 0})
+        await log_action(db, admin, "member_updated", f"{u['email']}: ambassador={bool(u.get('ambassador'))}, cap={u.get('referral_cap')}")
         return {"ambassador": bool(u.get("ambassador")), "referral_cap": u.get("referral_cap"), "monthly_cap": cap_of(u)}
 
     async def loop():
