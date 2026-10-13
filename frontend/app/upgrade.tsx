@@ -1,16 +1,29 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useEntitlement } from "@/src/billing/entitlement";
 import { PRODUCTS, PlanKey, Prices, billingAvailable, buy, loadPrices, openManageSubscription, referencePrices, restorePurchases } from "@/src/billing/play";
-import { Segmented } from "@/src/components/segmented";
 import { StackHeader } from "@/src/components/stack-header";
 import { useToast } from "@/src/components/toast";
 import { Button } from "@/src/components/ui";
 import { endDate } from "@/src/format";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
+
+const openPublic = (page: "privacy" | "terms") => WebBrowser.openBrowserAsync(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/public/${page}`);
+
+const TERMS = [
+  "Payment is taken by Google Play when you confirm your purchase.",
+  "Your subscription renews automatically at the same price (monthly, or every 6 months) unless you cancel at least 24 hours before the renewal date.",
+  "Cancel any time in Google Play → Payments & subscriptions. Pro stays active until the end of the period you've paid for.",
+  "If a renewal payment fails, Google Play retries it for a short grace period and Pro keeps working. If it still fails, your account returns to Free.",
+  "Moving back to Free never deletes your data. Older history and extra features reappear when you subscribe again.",
+  "No free trial. Refunds are handled by Google Play under its refund policy.",
+];
+const DISCLAIMER =
+  "DutyConnect is an independently developed and operated application. It is not affiliated with, endorsed by, sponsored by or officially connected to the government or any government agency. It is intended for personal shift, earnings and payment tracking and is not an official payroll or workforce management system.";
 
 const perMonth = (p: { amount: number; currency: string }) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: p.currency }).format(Math.round((p.amount / 6) * 100) / 100);
@@ -110,33 +123,48 @@ export default function Upgrade() {
 
         {!isPro && (
           <>
-            <Segmented<PlanKey>
-              testPrefix="upgrade-plan"
-              value={plan}
-              onChange={setPlan}
-              options={[
-                { value: "monthly", label: "Monthly" },
-                { value: "sixmonth", label: "Six-month" },
-              ]}
-            />
-            {prices && (
-              <View style={styles.priceList} testID="upgrade-price-list">
-                <Text style={styles.priceLine} testID="upgrade-price-monthly">
-                  <Text style={styles.priceStrong}>Monthly:</Text> {prices.monthly.price} per month
-                </Text>
-                <Text style={styles.priceLine} testID="upgrade-price-sixmonth">
-                  <Text style={styles.priceStrong}>Six-month plan:</Text> {perMonth(prices.sixmonth)} per month ({prices.sixmonth.price} total)
-                  {saving(prices) > 0 ? ` — saves ${saving(prices)}%` : ""}
-                </Text>
-              </View>
-            )}
+            <View style={styles.plans} accessibilityRole="radiogroup">
+              {(["monthly", "sixmonth"] as PlanKey[]).map((k) => {
+                const on = plan === k;
+                const p = prices?.[k];
+                return (
+                  <Pressable
+                    key={k}
+                    testID={`upgrade-plan-${k}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    onPress={() => setPlan(k)}
+                    style={[styles.planCard, on && { borderColor: colors.brandSecondary, borderWidth: 2 }]}
+                  >
+                    {k === "sixmonth" && prices && saving(prices) > 0 && (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>BEST VALUE · SAVE {saving(prices)}%</Text>
+                      </View>
+                    )}
+                    <View style={styles.planTop}>
+                      <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={20} color={on ? colors.brandSecondary : colors.muted} />
+                      <Text style={styles.planName}>{k === "monthly" ? "Monthly" : "Six-month plan"}</Text>
+                    </View>
+                    {p && (
+                      <>
+                        <Text style={styles.planPrice} testID={`upgrade-price-${k}`}>
+                          {k === "monthly" ? p.price : perMonth(p)}
+                          <Text style={styles.planPer}> / month</Text>
+                        </Text>
+                        <Text style={styles.planSub}>{k === "monthly" ? "Billed every month" : `${p.price} billed every 6 months`}</Text>
+                      </>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
             <Button
               testID="upgrade-subscribe-button"
               label={prices ? `Subscribe – ${prices[plan].price} ${plan === "sixmonth" ? "every 6 months" : "per month"}` : "Subscribe"}
               loading={busy}
               onPress={subscribe}
             />
-            <Text style={styles.note}>UK prices shown. Google Play confirms the final price in your local currency before you pay.</Text>
+            <Text style={styles.note}>Prices shown in GBP and include VAT. Google Play shows the final price in your local currency before you confirm.</Text>
             {!billingAvailable && (
               <Text style={styles.note} testID="upgrade-unavailable-note">
                 Subscriptions are available in the Google Play version of DutyConnect (not in Expo Go or the web preview).
@@ -148,9 +176,26 @@ export default function Upgrade() {
           <Button testID="upgrade-manage-button" label="Manage subscription in Google Play" variant="secondary" onPress={() => openManageSubscription(ent?.product_id ?? PRODUCTS[plan])} />
         )}
         <Button testID="upgrade-restore-button" label="Restore purchases" variant="ghost" onPress={restore} disabled={busy} />
-        <Text style={styles.note}>
-          Payment is taken by Google Play. Subscriptions renew automatically at the price shown unless cancelled at least 24 hours before the renewal date.
-          Cancel any time in Google Play – Pro continues until the end of the period you have paid for. Prices may vary by country. No free trial.
+
+        <View style={styles.terms} testID="upgrade-terms">
+          <Text style={styles.termsTitle}>Subscription terms</Text>
+          {TERMS.map((t) => (
+            <View key={t} style={styles.termRow}>
+              <Ionicons name="checkmark" size={16} color={colors.brandSecondary} />
+              <Text style={styles.termText}>{t}</Text>
+            </View>
+          ))}
+          <View style={styles.links}>
+            <Pressable testID="upgrade-terms-link" onPress={() => openPublic("terms")} hitSlop={8}>
+              <Text style={styles.link}>Terms of service</Text>
+            </Pressable>
+            <Pressable testID="upgrade-privacy-link" onPress={() => openPublic("privacy")} hitSlop={8}>
+              <Text style={styles.link}>Privacy policy</Text>
+            </Pressable>
+          </View>
+        </View>
+        <Text style={styles.disclaimer} testID="upgrade-disclaimer">
+          {DISCLAIMER}
         </Text>
       </ScrollView>
     </View>
@@ -171,8 +216,21 @@ const useStyles = makeStyles((c) => ({
   cellBox: { flex: 1, alignItems: "flex-start" },
   cellSmall: { fontFamily: fonts.medium, fontSize: type.sm, color: c.onSurfaceSecondary },
   offer: { fontFamily: fonts.semibold, fontSize: type.sm + 1, color: c.onSurface, backgroundColor: c.brandTertiary, borderRadius: radius.md, padding: spacing.md },
-  priceList: { gap: spacing.sm, paddingVertical: spacing.xs },
-  priceLine: { fontFamily: fonts.regular, fontSize: type.base, color: c.onSurface, lineHeight: 22 },
-  priceStrong: { fontFamily: fonts.bold, color: c.onSurface },
+  plans: { gap: spacing.md },
+  planCard: { borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, backgroundColor: c.surfaceSecondary, padding: spacing.lg, gap: spacing.xs },
+  planTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  planName: { fontFamily: fonts.bold, fontSize: type.lg, color: c.onSurface },
+  planPrice: { fontFamily: fonts.bold, fontSize: type.xl, color: c.onSurface, marginTop: spacing.xs },
+  planPer: { fontFamily: fonts.medium, fontSize: type.base, color: c.onSurfaceSecondary },
+  planSub: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted },
+  badge: { alignSelf: "flex-start", backgroundColor: c.brandSecondary, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: 2, marginBottom: spacing.xs },
+  badgeText: { fontFamily: fonts.bold, fontSize: type.sm - 1, color: "#FFFFFF", letterSpacing: 0.6 },
+  terms: { backgroundColor: c.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: c.border, padding: spacing.lg, gap: spacing.sm },
+  termsTitle: { fontFamily: fonts.bold, fontSize: type.base, color: c.onSurface },
+  termRow: { flexDirection: "row", gap: spacing.sm, alignItems: "flex-start" },
+  termText: { flex: 1, fontFamily: fonts.regular, fontSize: type.sm, color: c.onSurfaceSecondary, lineHeight: 19 },
+  links: { flexDirection: "row", gap: spacing.lg, marginTop: spacing.xs },
+  link: { fontFamily: fonts.semibold, fontSize: type.sm, color: c.brandSecondary, textDecorationLine: "underline" },
+  disclaimer: { fontFamily: fonts.regular, fontSize: type.sm - 1, color: c.muted, lineHeight: 17 },
   note: { fontFamily: fonts.regular, fontSize: type.sm, color: c.muted, lineHeight: 18 },
 }));
