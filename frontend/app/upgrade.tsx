@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useEntitlement } from "@/src/billing/entitlement";
+import { STORE, STORE_NAME } from "@/src/billing/store";
 import { PRODUCTS, PlanKey, Prices, billingAvailable, buy, loadPrices, openManageSubscription, referencePrices, restorePurchases } from "@/src/billing/play";
 import { StackHeader } from "@/src/components/stack-header";
 import { useToast } from "@/src/components/toast";
@@ -15,12 +16,12 @@ import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme"
 const openPublic = (page: "privacy" | "terms") => WebBrowser.openBrowserAsync(`${process.env.EXPO_PUBLIC_BACKEND_URL}/api/public/${page}`);
 
 const TERMS = [
-  "Payment is taken by Google Play when you confirm your purchase.",
+  `Payment is taken by ${STORE_NAME} when you confirm your purchase.`,
   "Your subscription renews automatically at the same price (monthly, or every 6 months) unless you cancel at least 24 hours before the renewal date.",
-  "Cancel any time in Google Play → Payments & subscriptions. Pro stays active until the end of the period you've paid for.",
-  "If a renewal payment fails, Google Play retries it for a short grace period and Pro keeps working. If it still fails, your account returns to Free.",
+  `Cancel any time in ${STORE === "aptoide" ? "the Aptoide app or wallet" : "Google Play → Payments & subscriptions"}. Pro stays active until the end of the period you've paid for.`,
+  `If a renewal payment fails, ${STORE_NAME} retries it for a short grace period and Pro keeps working. If it still fails, your account returns to Free.`,
   "Moving back to Free never deletes your data. Older history and extra features reappear when you subscribe again.",
-  "No free trial. Refunds are handled by Google Play under its refund policy.",
+  `No free trial. Refunds are handled by ${STORE_NAME} under its refund policy.`,
 ];
 const DISCLAIMER =
   "DutyConnect is an independently developed and operated application. It is not affiliated with, endorsed by, sponsored by or officially connected to the government or any government agency. It is intended for personal shift, earnings and payment tracking and is not an official payroll or workforce management system.";
@@ -164,16 +165,16 @@ export default function Upgrade() {
               loading={busy}
               onPress={subscribe}
             />
-            <Text style={styles.note}>Prices shown in GBP and include VAT. Google Play shows the final price in your local currency before you confirm.</Text>
+            <Text style={styles.note}>Prices shown in GBP and include VAT. {STORE_NAME} shows the final price in your local currency before you confirm.</Text>
             {!billingAvailable && (
               <Text style={styles.note} testID="upgrade-unavailable-note">
-                Subscriptions are available in the Google Play version of DutyConnect (not in Expo Go or the web preview).
+                {STORE === "aptoide" ? "Aptoide payments are being set up and will be available in a coming update." : "Subscriptions are available in the Google Play and Aptoide versions of DutyConnect (not in Expo Go or the web preview)."}
               </Text>
             )}
           </>
         )}
         {isPro && (
-          <Button testID="upgrade-manage-button" label="Manage subscription in Google Play" variant="secondary" onPress={() => openManageSubscription(ent?.product_id ?? PRODUCTS[plan])} />
+          <Button testID="upgrade-manage-button" label={`Manage subscription in ${STORE_NAME}`} variant="secondary" onPress={() => openManageSubscription(ent?.product_id ?? PRODUCTS[plan])} />
         )}
         <Button testID="upgrade-restore-button" label="Restore purchases" variant="ghost" onPress={restore} disabled={busy} />
 

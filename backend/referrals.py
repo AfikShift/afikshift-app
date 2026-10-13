@@ -164,7 +164,7 @@ def make_router(db, current_user, billing, logger) -> APIRouter:
         can_apply = (progs["referrals"] and not user.get("referred_by") and not await db.subscriptions.find_one({"user_id": user["id"]})
                      and aware(user["created_at"]) >= now() - timedelta(days=APPLY_WINDOW_DAYS))
         return {
-            "enabled": progs["referrals"], "code": code, "monthly_cap": cap_of(user, progs["ambassadors"]),
+            "enabled": progs["referrals"], "code": code, "download_url": os.environ.get("APTOIDE_URL", "https://dutyconnect.en.aptoide.com"), "monthly_cap": cap_of(user, progs["ambassadors"]),
             "ambassador": bool(user.get("ambassador")) and progs["ambassadors"],
             "this_month": totals([x for x in recs if aware(x["created_at"]) >= month_start]), "all_time": totals(recs),
             "rewards_left_this_month": max(0, cap_of(user, progs["ambassadors"]) - used),

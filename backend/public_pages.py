@@ -18,8 +18,13 @@ def cfg() -> dict:
         "site": os.environ.get("PUBLIC_BASE_URL", "https://YOUR-DOMAIN.example"),
         "updated": os.environ.get("POLICY_LAST_UPDATED", "[DATE]"),
         "backup_days": os.environ.get("BACKUP_RETENTION_DAYS", "35"),
+        "aptoide": os.environ.get("APTOIDE_URL", "https://dutyconnect.en.aptoide.com"),
     }
 
+
+DISCLAIMER = ("DutyConnect is an independently developed and operated application. It is not affiliated with, endorsed by, "
+              "sponsored by or officially connected to the government or any government agency. It is intended for personal "
+              "shift, earnings and payment tracking and is not an official payroll or workforce management system.")
 
 CSS = """
 body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827;background:#F4F5F7;line-height:1.55}
@@ -33,6 +38,8 @@ button.danger{background:#DC2626}.note{color:#6B7280;font-size:13px}.warn{backgr
 .ok{background:#E3F7EF;color:#065F46;border-radius:10px;padding:12px}.err{color:#DC2626;font-weight:600}.hidden{display:none}
 .check{display:flex;gap:10px;align-items:flex-start;margin-top:12px}.check input{width:22px;height:22px;flex:none}.check label{margin:0;font-weight:400}
 button.secondary{background:#F4F5F7;color:#111827}a{color:#007070}
+a.store{display:block;text-align:center;background:#0A192F;color:#fff;text-decoration:none;font-weight:700;border-radius:10px;padding:14px;margin-top:8px}
+footer{max-width:760px;margin:0 auto;padding:0 16px 24px}
 """
 
 
@@ -41,7 +48,9 @@ def page(title: str, body: str, script: str = "") -> HTMLResponse:
     html = f"""<!doctype html><html lang="en-GB"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)} · DutyConnect</title>
 <meta name="robots" content="noindex"><style nonce="{nonce}">{CSS}</style></head><body>
-<header><b>DutyConnect</b><span>Know your shifts. Track your earnings. Stay in control.</span></header><main>{body}</main>
+<header><b>DutyConnect – Independent Shift &amp; Earnings Tracker</b><span>Know your shifts. Track your earnings. Stay in control.</span></header><main>{body}</main>
+<footer><section><h2>Get the app</h2><a class="store" href="{escape(cfg()["aptoide"])}" rel="noopener" data-testid="get-on-aptoide">Get it on Aptoide</a>
+<p class="note">{DISCLAIMER}</p></section></footer>
 {f'<script nonce="{nonce}">{script}</script>' if script else ''}</body></html>"""
     csp = (f"default-src 'none'; style-src 'nonce-{nonce}'; script-src 'nonce-{nonce}'; "
            "connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'")

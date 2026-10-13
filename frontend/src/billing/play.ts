@@ -1,3 +1,5 @@
+import { STORE } from "./store";
+
 // Google Play Billing via expo-iap. Native only: Expo Go and the web preview cannot load the billing
 // module, so purchases there report "unavailable" (everything else in the app keeps working).
 import Constants, { ExecutionEnvironment } from "expo-constants";
@@ -12,6 +14,7 @@ export type PlanKey = keyof typeof PRODUCTS;
 export const billingAvailable = Platform.OS === "android" && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
 
 function iap(): any {
+  if (STORE !== "play") return null; // Aptoide builds never load Google Play Billing (store policy)
   if (!billingAvailable) return null;
   try {
     return require("expo-iap");

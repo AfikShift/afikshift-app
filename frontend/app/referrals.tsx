@@ -13,7 +13,7 @@ import { fonts, makeStyles, radius, spacing, type } from "@/src/theme";
 
 type Ref = { id: string; status: string; created_at: string; qualifies_at: string | null; referrer_reward: string | null };
 type Totals = { signed_up: number; qualifying: number; qualified: number; rewarded: number };
-type Data = { enabled: boolean; code: string; this_month: Totals; all_time: Totals; rewards_left_this_month: number; monthly_cap: number; ambassador: boolean; can_apply_code: boolean; apply_window_days: number; my_referral_status: string | null; referrals: Ref[] };
+type Data = { enabled: boolean; code: string; download_url: string; this_month: Totals; all_time: Totals; rewards_left_this_month: number; monthly_cap: number; ambassador: boolean; can_apply_code: boolean; apply_window_days: number; my_referral_status: string | null; referrals: Ref[] };
 
 
 const REWARD: Record<string, string> = { deferred: "1 free month added", bonus: "1 free month added", capped: "Monthly limit reached – no reward" };
@@ -41,7 +41,9 @@ export default function Referrals() {
   );
 
   const share = () =>
-    Share.share({ message: `I use DutyConnect to track my shifts and earnings. Join with my code ${data?.code} and we both get a free month of Pro after your first paid month.` });
+    Share.share({
+      message: `I use DutyConnect to track my shifts and earnings. Get the app on Aptoide: ${data?.download_url} and join with my code ${data?.code} – we both get a free month of Pro after your first paid month.`,
+    });
 
   const apply = async () => {
     setBusy(true);
