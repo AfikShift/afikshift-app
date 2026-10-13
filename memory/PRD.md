@@ -144,3 +144,4 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - .gitignore hardened (.env files, signing keys, store credentials excluded; .env.example kept)
 - Secrets scan of export-eligible files and git history: clean
 - README.md (build/run guide), frontend/.env.example, backend/.env.example extended; test passwords moved to env (TEST_MAIN_PASSWORD)
+- .env.example files + frontend/yarn.lock now git-tracked (were untracked, so missed by GitHub export)
