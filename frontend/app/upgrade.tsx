@@ -168,7 +168,7 @@ export default function Upgrade() {
             <Text style={styles.note}>Prices shown in GBP and include VAT. {STORE_NAME} shows the final price in your local currency before you confirm.</Text>
             {!billingAvailable && (
               <Text style={styles.note} testID="upgrade-unavailable-note">
-                {STORE === "aptoide" ? "Aptoide payments are being set up and will be available in a coming update." : "Subscriptions are available in the Google Play and Aptoide versions of DutyConnect (not in Expo Go or the web preview)."}
+                {STORE === "aptoide" ? "Pro subscriptions through Aptoide are being set up and will arrive in an app update. A Google Play version is coming soon." : "Subscriptions are available in the Google Play and Aptoide versions of DutyConnect (not in Expo Go or the web preview)."}
               </Text>
             )}
           </>

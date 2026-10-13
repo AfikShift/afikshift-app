@@ -132,3 +132,5 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Aptoide prep (links only): APTOIDE_URL env (placeholder https://dutyconnect.en.aptoide.com) → "Get it on Aptoide" + disclaimer footer on all public pages; download_url in /referrals/me and share message. Frontend src/billing/store.ts (EXPO_PUBLIC_STORE=play|aptoide) drives store name in upgrade terms; Aptoide build never loads Google Play Billing; Aptoide payments pending step B.
 
 - Launch announcement: public page /api/public/download (Aptoide now, Google Play soon, ticks, plans, disclaimer); footer on all public pages says Google Play coming soon; Refer-a-friend share message uses the announcement text + code.
+
+- Default store switched to Aptoide (frontend .env EXPO_PUBLIC_STORE=aptoide): upgrade terms/notes name Aptoide; Google Play Billing not loaded. Set back to play for the Google Play build.

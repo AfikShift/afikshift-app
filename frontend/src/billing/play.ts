@@ -75,7 +75,7 @@ export async function loadPrices(): Promise<Prices | null> {
 
 export async function buy(plan: PlanKey, accountRef: string) {
   const m = iap();
-  if (!m) throw new Error("Subscriptions are available in the Google Play version of DutyConnect.");
+  if (!m) throw new Error(STORE === "aptoide" ? "Aptoide subscriptions are coming in an app update." : "Subscriptions are available in the Google Play version of DutyConnect.");
   const sku = PRODUCTS[plan];
   const [prod] = await m.fetchProducts({ skus: [sku], type: "subs" });
   const offers: any[] = prod?.subscriptionOfferDetailsAndroid ?? [];
