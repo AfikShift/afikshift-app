@@ -30,6 +30,9 @@ export default function Welcome() {
         <Animated.Text entering={FadeInDown.delay(140).duration(500)} style={styles.tagline}>
           Know your shifts. Track your earnings. Stay in control.
         </Animated.Text>
+        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={styles.types} testID="welcome-shift-types">
+          Track Bed Watch, Constant Watch, hospital escorts, enhanced observations, bank shifts, overtime and more.
+        </Animated.Text>
       </View>
       <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
         <View style={styles.points}>
@@ -66,6 +69,7 @@ const useStyles = makeStyles((c) => ({
   },
   brand: { fontFamily: fonts.extrabold, fontSize: 40, color: c.onHero, letterSpacing: -1 },
   tagline: { fontFamily: fonts.medium, fontSize: type.lg, color: c.heroAccent, marginTop: spacing.xs },
+  types: { fontFamily: fonts.regular, fontSize: type.base, color: c.onHeroMuted, marginTop: spacing.sm, lineHeight: 20 },
   sheet: {
     backgroundColor: c.surface,
     borderTopLeftRadius: 28,
