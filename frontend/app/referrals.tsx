@@ -42,7 +42,14 @@ export default function Referrals() {
 
   const share = () =>
     Share.share({
-      message: `I use DutyConnect to track my shifts and earnings. Get the app on Aptoide: ${data?.download_url} and join with my code ${data?.code} – we both get a free month of Pro after your first paid month.`,
+      message:
+        `🚀 DutyConnect is now available on Aptoide!\n` +
+        `We're working towards bringing DutyConnect to the Google Play Store. In the meantime, you don't have to wait!\n\n` +
+        `📱 Download DutyConnect through Aptoide and start managing your shifts, tracking your earnings and keeping your payment records organised.\n` +
+        `✅ Track Bed Watch and Constant Watch shifts\n✅ Monitor earnings and outstanding payments\n✅ Manage your shifts conveniently\n\n` +
+        `Download DutyConnect today: ${data?.download_url}\n` +
+        `Join with my code ${data?.code} – we both get a free month of Pro after your first paid month.\n\n` +
+        `Google Play Store release coming soon!`,
     });
 
   const apply = async () => {

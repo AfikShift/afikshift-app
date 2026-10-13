@@ -39,7 +39,7 @@ button.danger{background:#DC2626}.note{color:#6B7280;font-size:13px}.warn{backgr
 .check{display:flex;gap:10px;align-items:flex-start;margin-top:12px}.check input{width:22px;height:22px;flex:none}.check label{margin:0;font-weight:400}
 button.secondary{background:#F4F5F7;color:#111827}a{color:#007070}
 a.store{display:block;text-align:center;background:#0A192F;color:#fff;text-decoration:none;font-weight:700;border-radius:10px;padding:14px;margin-top:8px}
-footer{max-width:760px;margin:0 auto;padding:0 16px 24px}
+footer{max-width:760px;margin:0 auto;padding:0 16px 24px}ul.ticks{list-style:none;padding:0}ul.ticks li{margin:6px 0}
 """
 
 
@@ -50,7 +50,7 @@ def page(title: str, body: str, script: str = "") -> HTMLResponse:
 <meta name="robots" content="noindex"><style nonce="{nonce}">{CSS}</style></head><body>
 <header><b>DutyConnect – Independent Shift &amp; Earnings Tracker</b><span>Know your shifts. Track your earnings. Stay in control.</span></header><main>{body}</main>
 <footer><section><h2>Get the app</h2><a class="store" href="{escape(cfg()["aptoide"])}" rel="noopener" data-testid="get-on-aptoide">Get it on Aptoide</a>
-<p class="note">{DISCLAIMER}</p></section></footer>
+<p class="note">Google Play Store release coming soon.</p><p class="note">{DISCLAIMER}</p></section></footer>
 {f'<script nonce="{nonce}">{script}</script>' if script else ''}</body></html>"""
     csp = (f"default-src 'none'; style-src 'nonce-{nonce}'; script-src 'nonce-{nonce}'; "
            "connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'")
@@ -152,7 +152,29 @@ A deletion log keeps only a one-way code and the date (no email address or recor
     return page("Delete account", body, DELETE_JS)
 
 
+ANNOUNCEMENT_POINTS = [
+    "Track Bed Watch and Constant Watch shifts",
+    "Monitor earnings and outstanding payments",
+    "Manage your shifts conveniently",
+]
+
+
+def download_html() -> HTMLResponse:
+    """Shareable launch page: available on Aptoide now, Google Play coming soon."""
+    c = cfg()
+    pts = "".join(f"<li>✅ {escape(x)}</li>" for x in ANNOUNCEMENT_POINTS)
+    body = f"""<h1>🚀 DutyConnect is now available on Aptoide!</h1>
+<section><p>We're working towards bringing DutyConnect to the Google Play Store. In the meantime, you don't have to wait!</p>
+<p>📱 Download DutyConnect through Aptoide and start managing your shifts, tracking your earnings and keeping your payment records organised.</p>
+<ul class="ticks">{pts}</ul>
+<a class="store" href="{escape(c['aptoide'])}" rel="noopener" data-testid="download-aptoide">Download DutyConnect on Aptoide</a>
+<p class="note">Google Play Store release coming soon!</p></section>
+<section><h2>Plans</h2><p>Free to start. Pro: £3.99 per month, or £19.99 every six months (about £3.33 per month).</p></section>"""
+    return page("Download", body)
+
+
 router = APIRouter(prefix="/api/public")
+router.add_api_route("/download", download_html, methods=["GET"], include_in_schema=False)
 router.add_api_route("/privacy", privacy_html, methods=["GET"], include_in_schema=False)
 router.add_api_route("/terms", terms_html, methods=["GET"], include_in_schema=False)
 router.add_api_route("/delete-account", delete_html, methods=["GET"], include_in_schema=False)
