@@ -53,7 +53,7 @@ export default function Register() {
   };
 
   return (
-    <AuthShell title="Create your account" subtitle="Track Bed Watch, Constant Watch, hospital escorts, enhanced observations, bank shifts, overtime and more. Takes under a minute." testID="register-screen">
+    <AuthShell title="Create your account" subtitle="DutyConnect – Independent Shift & Earnings Tracker. Takes under a minute." testID="register-screen">
       <TextField
         testID="register-name-input"
         label="Full name"

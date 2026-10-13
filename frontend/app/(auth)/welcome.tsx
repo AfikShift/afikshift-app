@@ -8,9 +8,9 @@ import { Button } from "@/src/components/ui";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 const POINTS: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }[] = [
-  { icon: "calendar-outline", text: "Plan shifts, overtime and extra shifts in seconds" },
-  { icon: "cash-outline", text: "See estimated earnings and what you're still owed" },
-  { icon: "cloud-offline-outline", text: "Works offline — syncs when you're back online" },
+  { icon: "calendar-outline", text: "Track Bed Watch, Constant Watch, hospital escorts, enhanced observations, bank shifts, overtime and more." },
+  { icon: "cash-outline", text: "See your expected pay, before and after tax" },
+  { icon: "cloud-offline-outline", text: "Works offline and syncs when you're back online" },
 ];
 
 export default function Welcome() {
@@ -27,11 +27,11 @@ export default function Welcome() {
         <Animated.Text entering={FadeInDown.delay(80).duration(500)} style={styles.brand}>
           DutyConnect
         </Animated.Text>
-        <Animated.Text entering={FadeInDown.delay(140).duration(500)} style={styles.tagline}>
-          Know your shifts. Track your earnings. Stay in control.
+        <Animated.Text entering={FadeInDown.delay(140).duration(500)} style={styles.tagline} testID="welcome-positioning">
+          Independent Shift &amp; Earnings Tracker
         </Animated.Text>
-        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={styles.types} testID="welcome-shift-types">
-          Track Bed Watch, Constant Watch, hospital escorts, enhanced observations, bank shifts, overtime and more.
+        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={styles.types}>
+          Know your shifts. Track your earnings. Stay in control.
         </Animated.Text>
       </View>
       <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
@@ -41,7 +41,9 @@ export default function Welcome() {
               <View style={styles.pointIcon}>
                 <Ionicons name={p.icon} size={18} color={colors.onBrandTertiary} />
               </View>
-              <Text style={styles.pointText}>{p.text}</Text>
+              <Text style={styles.pointText} testID={i === 0 ? "welcome-shift-types" : undefined}>
+                {p.text}
+              </Text>
             </Animated.View>
           ))}
         </View>
@@ -68,7 +70,7 @@ const useStyles = makeStyles((c) => ({
     marginBottom: spacing.xl,
   },
   brand: { fontFamily: fonts.extrabold, fontSize: 40, color: c.onHero, letterSpacing: -1 },
-  tagline: { fontFamily: fonts.medium, fontSize: type.lg, color: c.heroAccent, marginTop: spacing.xs },
+  tagline: { fontFamily: fonts.bold, fontSize: type.lg, color: c.heroAccent, marginTop: spacing.xs },
   types: { fontFamily: fonts.regular, fontSize: type.base, color: c.onHeroMuted, marginTop: spacing.sm, lineHeight: 20 },
   sheet: {
     backgroundColor: c.surface,
