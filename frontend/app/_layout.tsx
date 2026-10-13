@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from "@/src/auth";
 import { ErrorBoundary } from "@/src/components/error-boundary";
 import { LockScreen } from "@/src/components/lock-screen";
 import { ToastProvider, useToast } from "@/src/components/toast";
+import { RequiredUpdateGate } from "@/src/components/app-update";
 import { queryClient } from "@/src/query-client";
 import { ShiftsProvider } from "@/src/shifts/provider";
 import { EntitlementProvider, useEntitlement } from "@/src/billing/entitlement";
@@ -48,6 +49,7 @@ function AppStack() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <RequiredUpdateGate>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
@@ -63,6 +65,7 @@ function AppStack() {
         <Stack.Screen name="admin" options={{ presentation: "card" }} />
         <Stack.Screen name="admin-referrals" options={{ presentation: "card" }} />
       </Stack>
+      </RequiredUpdateGate>
       {status === "signedIn" && locked && (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
           <LockScreen />

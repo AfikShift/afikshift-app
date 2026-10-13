@@ -47,7 +47,7 @@ provided a data-processing agreement exists with the provider (see gaps below).
   privacy notice tell users not to enter them. Declare this honestly if Google asks.
 
 ## C. Gaps and uncertainties for your review (not assumed)
-1. **Package name** is `com.emergent.dutyconnectbeta.qws5xm` (app.json). Choose your own permanent id (e.g. `uk.co.yourorg.dutyconnect`) **before the first upload** – it cannot be changed afterwards.
+1. **Package name** is `uk.dutyconnect.app` (app.json, permanent – shared with the Aptoide and direct APK builds; never change it, and always sign with the same key).
 2. **Hosting & email providers**: name them in the privacy policy and sign their data-processing terms (UK GDPR Art. 28). If the Emergent email service remains in use, confirm its processing terms with Emergent.
 3. **Database encryption at rest** must be confirmed for the chosen host.
 4. **Server log retention** (IP addresses) must be set and stated.

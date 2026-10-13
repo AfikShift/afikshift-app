@@ -134,3 +134,5 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Launch announcement: public page /api/public/download (Aptoide now, Google Play soon, ticks, plans, disclaimer); footer on all public pages says Google Play coming soon; Refer-a-friend share message uses the announcement text + code.
 
 - Default store switched to Aptoide (frontend .env EXPO_PUBLIC_STORE=aptoide): upgrade terms/notes name Aptoide; Google Play Billing not loaded. Set back to play for the Google Play build.
+
+- Step A done: permanent package uk.dutyconnect.app; disclaimer in Account footer. Share/Download: ShareAppSheet (Aptoide or direct APK) on Home/Account/Refer a friend; stable /api/public/download/android → APK_URL; /api/public/app-version + Update banner / required-update gate (Aptoide builds). APK_URL empty until hosting chosen. tests/test_distribution.py.

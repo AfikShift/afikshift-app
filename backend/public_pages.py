@@ -8,7 +8,7 @@ import secrets
 from html import escape
 
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 
 def cfg() -> dict:
@@ -163,18 +163,37 @@ def download_html() -> HTMLResponse:
     """Shareable launch page: available on Aptoide now, Google Play coming soon."""
     c = cfg()
     pts = "".join(f"<li>✅ {escape(x)}</li>" for x in ANNOUNCEMENT_POINTS)
+    v = app_version()
+    apk_block = (f'<a class="store" href="/api/public/download/android" data-testid="download-apk">Direct download for Android (APK) · v{escape(v["latest"])}</a>'
+                 '<p class="note">Direct download: open the file, allow "Install unknown apps" for your browser when asked, then tap Install. '
+                 'Updates install over the top and keep your data. Only download DutyConnect from this page or Aptoide.</p>'
+                 if v["apk_available"] else '<p class="note" data-testid="download-apk-soon">Direct Android download coming soon.</p>')
     body = f"""<h1>🚀 DutyConnect is now available on Aptoide!</h1>
 <section><p>We're working towards bringing DutyConnect to the Google Play Store. In the meantime, you don't have to wait!</p>
 <p>📱 Download DutyConnect through Aptoide and start managing your shifts, tracking your earnings and keeping your payment records organised.</p>
 <ul class="ticks">{pts}</ul>
 <a class="store" href="{escape(c['aptoide'])}" rel="noopener" data-testid="download-aptoide">Download DutyConnect on Aptoide</a>
+{apk_block}
 <p class="note">Google Play Store release coming soon!</p></section>
 <section><h2>Plans</h2><p>Free to start. Pro: £3.99 per month, or £19.99 every six months (about £3.33 per month).</p></section>"""
     return page("Download", body)
 
 
+def app_version() -> dict:
+    return {"latest": os.environ.get("APP_LATEST_VERSION", "1.0.0"), "min_supported": os.environ.get("APP_MIN_VERSION", "1.0.0"),
+            "apk_available": bool(os.environ.get("APK_URL", "").startswith("https://"))}
+
+
+def download_android():
+    """Stable link that never changes: always sends people to the latest signed APK (APK_URL, HTTPS only)."""
+    url = os.environ.get("APK_URL", "")
+    return RedirectResponse(url if url.startswith("https://") else "/api/public/download", status_code=302)
+
+
 router = APIRouter(prefix="/api/public")
 router.add_api_route("/download", download_html, methods=["GET"], include_in_schema=False)
+router.add_api_route("/download/android", download_android, methods=["GET"], include_in_schema=False)
+router.add_api_route("/app-version", app_version, methods=["GET"], include_in_schema=False)
 router.add_api_route("/privacy", privacy_html, methods=["GET"], include_in_schema=False)
 router.add_api_route("/terms", terms_html, methods=["GET"], include_in_schema=False)
 router.add_api_route("/delete-account", delete_html, methods=["GET"], include_in_schema=False)

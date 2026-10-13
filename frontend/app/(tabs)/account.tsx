@@ -14,6 +14,7 @@ import { useShifts } from "@/src/shifts/provider";
 import { useEntitlement } from "@/src/billing/entitlement";
 import { request } from "@/src/api";
 import { shareJson } from "@/src/shifts/report";
+import { ShareAppSheet } from "@/src/components/share-app";
 import { openManageSubscription, restorePurchases } from "@/src/billing/play";
 
 /** Public pages (no login needed); the host comes from configuration. */
@@ -36,6 +37,7 @@ export default function Account() {
   );
   const { isPro, ent, apply } = useEntitlement();
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const rate = user?.hourly_rate != null ? `${currencySymbol(user.currency)}${user.hourly_rate.toFixed(2)}/hr` : "Not set";
 
   return (
@@ -127,6 +129,7 @@ export default function Account() {
 
         <SectionTitle>Support</SectionTitle>
         <Card style={styles.group}>
+          <ListRow testID="account-share-row" icon="share-social-outline" title="Share DutyConnect" value="Aptoide or direct" onPress={() => setSharing(true)} />
           <ListRow testID="account-messages-row" icon="chatbubbles-outline" title="SMS forwarding" onPress={() => router.push("/messages")} />
           <ListRow testID="account-privacy-row" icon="document-lock-outline" title="Privacy policy" onPress={() => openPublic("privacy")} />
           <ListRow testID="account-terms-row" icon="document-text-outline" title="Terms of use" onPress={() => openPublic("terms")} />
@@ -137,8 +140,9 @@ export default function Account() {
           <ListRow testID="account-signout-row" icon="log-out-outline" title="Sign out" danger onPress={logout} last right={<View />} />
         </Card>
 
-        <Text style={styles.footer}>DutyConnect · Know your shifts. Track your earnings. Stay in control.{"\n"}Figures are estimates, not official payroll records.</Text>
+        <Text style={styles.footer}>DutyConnect · Know your shifts. Track your earnings. Stay in control.{"\n"}Figures are estimates, not official payroll records.{"\n\n"}DutyConnect is an independently developed and operated application. It is not affiliated with, endorsed by, sponsored by or officially connected to the government or any government agency. It is intended for personal shift, earnings and payment tracking and is not an official payroll or workforce management system.</Text>
       </ScrollView>
+      <ShareAppSheet visible={sharing} onClose={() => setSharing(false)} />
       <ExportSheet visible={exporting} onClose={() => setExporting(false)} shifts={shifts} label="All records" />
     </View>
   );

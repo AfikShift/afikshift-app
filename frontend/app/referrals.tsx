@@ -1,10 +1,11 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { request } from "@/src/api";
 import { REFERRAL_STATUS } from "@/src/referrals";
+import { ShareAppSheet } from "@/src/components/share-app";
 import { StackHeader } from "@/src/components/stack-header";
 import { useToast } from "@/src/components/toast";
 import { Button, Card, SectionTitle, TextField } from "@/src/components/ui";
@@ -40,17 +41,8 @@ export default function Referrals() {
     }, [load]),
   );
 
-  const share = () =>
-    Share.share({
-      message:
-        `🚀 DutyConnect is now available on Aptoide!\n` +
-        `We're working towards bringing DutyConnect to the Google Play Store. In the meantime, you don't have to wait!\n\n` +
-        `📱 Download DutyConnect through Aptoide and start managing your shifts, tracking your earnings and keeping your payment records organised.\n` +
-        `✅ Track Bed Watch and Constant Watch shifts\n✅ Monitor earnings and outstanding payments\n✅ Manage your shifts conveniently\n\n` +
-        `Download DutyConnect today: ${data?.download_url}\n` +
-        `Join with my code ${data?.code} – we both get a free month of Pro after your first paid month.\n\n` +
-        `Google Play Store release coming soon!`,
-    });
+  const [sharing, setSharing] = useState(false);
+  const share = () => setSharing(true);
 
   const apply = async () => {
     setBusy(true);
@@ -157,6 +149,7 @@ export default function Referrals() {
           </Text>
         </ScrollView>
       )}
+      <ShareAppSheet visible={sharing} onClose={() => setSharing(false)} code={data?.code} aptoideUrl={data?.download_url} />
     </View>
   );
 }

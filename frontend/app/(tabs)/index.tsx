@@ -6,6 +6,8 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useAuth } from "@/src/auth";
 import { ProvisionalBanner } from "@/src/components/provisional-banner";
+import { UpdateBanner } from "@/src/components/app-update";
+import { ShareAppSheet } from "@/src/components/share-app";
 import { HeaderActions } from "@/src/components/sync-badge";
 import { TabHeader, useTabBottomPadding } from "@/src/components/tab-screen";
 import { tap } from "@/src/components/ui";
@@ -53,6 +55,7 @@ function Stat({ label, value, testID }: { label: string; value: string; testID: 
 export default function Home() {
   const { user, refreshUser } = useAuth();
   const router = useRouter();
+  const [sharing, setSharing] = useState(false);
   const styles = useStyles();
   const { colors } = useTheme();
   const bottom = useTabBottomPadding();
@@ -84,6 +87,7 @@ export default function Home() {
         contentContainerStyle={[styles.content, { paddingBottom: bottom }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brandSecondary} />}
       >
+        <UpdateBanner />
         {syncBlocked && (
           <View style={styles.banner} testID="home-sync-blocked-banner">
             <Ionicons name="phone-portrait-outline" size={20} color={colors.warning} />
@@ -157,7 +161,7 @@ export default function Home() {
         <Animated.View entering={FadeInDown.delay(120).duration(450)} style={styles.qaRow}>
           <QuickAction testID="home-quick-add-shift" icon="add-circle-outline" label="Add Shift" onPress={() => router.push({ pathname: "/shift-form", params: { n: String(Date.now()) } })} />
           <QuickAction testID="home-quick-calendar" icon="calendar-outline" label="Calendar" onPress={() => router.push("/(tabs)/shifts")} />
-          <QuickAction testID="home-quick-messages" icon="chatbubbles-outline" label="Messages" onPress={() => router.push("/messages")} />
+          <QuickAction testID="home-quick-share" icon="share-social-outline" label="Share App" onPress={() => setSharing(true)} />
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(180).duration(450)} style={styles.card} testID="home-month-summary-card">
@@ -193,6 +197,7 @@ export default function Home() {
           </Pressable>
         </Animated.View>
       </ScrollView>
+      <ShareAppSheet visible={sharing} onClose={() => setSharing(false)} />
     </View>
   );
 }

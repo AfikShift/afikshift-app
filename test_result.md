@@ -130,3 +130,9 @@
 
 ## Shift form fresh-open fix + refresh/clear
 - shift-form remounts per params (+ n nonce from all callers); header Clear (add/duplicate → blank) / Undo changes (edit). HeaderActions refresh button (header-refresh-button) on Home/Shifts/Earnings.
+
+## Step A + share/download — main agent
+- Package uk.dutyconnect.app (app.json android+ios, versionCode 1; backend ANDROID_PACKAGE). Account footer has full disclaimer.
+- ShareAppSheet (share-app-sheet, share-app-aptoide, share-app-direct, share-app-cancel) from Home quick action home-quick-share, Account row account-share-row, Refer a friend share button (includes code).
+- Public: /api/public/download/android (302 to APK_URL if https else download page), /api/public/app-version, download page shows direct APK button or "coming soon" (download-apk-soon).
+- Update check (aptoide store only): UpdateBanner on Home (update-banner) when APP_LATEST_VERSION > app version; RequiredUpdateGate when below APP_MIN_VERSION.

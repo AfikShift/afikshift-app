@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 13 (Aptoide distribution + Share App flows) — BACKEND & FRONTEND BOTH PASS. All 3 new backend endpoint tests green and every requested frontend flow verified on the mobile (390x844) web preview after logging in as delivered+t1@resend.dev.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "ShareAppSheet.pick (web only)",
+        "issue": "Share.share rejects with 'Share is not supported in this browser' on web and the rejection is not caught, so Expo dev shows a red error overlay AFTER the sheet closes. The sheet still closes cleanly (onClose() runs before Share.share), and on Android native (production target) Share.share is supported, so this is a dev-only artefact. Suggest wrapping await Share.share(...) in try/catch to also silence the unhandled rejection on web. Reference: /app/frontend/src/components/share-app.tsx:27-30",
+        "affected_testIDs": ["share-app-aptoide", "share-app-direct"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_distribution_iter13.py",
+    "/app/test_reports/pytest/iter13_distribution.xml"
+  ],
+  "action_items": [
+    "(Optional, polish) Wrap `await Share.share(...)` in /app/frontend/src/components/share-app.tsx inside a try/catch so the web dev-mode unhandled rejection ('Share is not supported in this browser') is suppressed; current behaviour is only visible in Expo dev and does not affect Android native builds."
+  ],
+  "critical_code_review_comments": [
+    "share-app.tsx: shareMessage composes the right text (independence tagline + aptoide/direct link + optional referral code + 'Google Play Store release coming soon' + DISCLAIMER). ShareAppSheet has all required testIDs: share-app-sheet, share-app-aptoide, share-app-direct, share-app-cancel, share-app-backdrop. ✓",
+    "app-update.tsx: useAppUpdate() early-returns when STORE !== 'aptoide'; EXPO_PUBLIC_STORE=aptoide in frontend/.env so it will call /api/public/app-version. With APP_LATEST_VERSION=1.0.0 == Constants.expoConfig.version 1.0.0, isOlder returns false → UpdateBanner renders null and RequiredUpdateGate passes children through. ✓",
+    "public_pages.py: /api/public/app-version returns correct shape; /api/public/download/android redirects 302 to /api/public/download when APK_URL is empty (not https://...); /api/public/download page renders 'Download DutyConnect on Aptoide' link (data-testid=\"download-aptoide\") and the 'Direct Android download coming soon' note (data-testid=\"download-apk-soon\"), with pricing £3.99 / £19.99 and the independence DISCLAIMER in footer. ✓",
+    "account.tsx: footer contains the FULL independence disclaimer ('independently developed and operated application. It is not affiliated with, endorsed by, sponsored by or officially connected to the government or any government agency…'). ✓",
+    "referrals.tsx: ShareAppSheet is passed code={data?.code} and aptoideUrl={data?.download_url}, so the referral code is embedded in shareMessage when the user picks aptoide/direct. ✓"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (3/3 iter13 tests)",
+    "frontend": "100% (all 8 review items verified)"
+  },
+  "seed_data_creation": "None. Reused existing user delivered+t1@resend.dev / Testpass123.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend tests for Aptoide distribution are at /app/backend/tests/test_distribution_iter13.py (3 tests, all pass). Frontend flows verified on mobile viewport 390x844: welcome tagline 'Independent Shift & Earnings Tracker'; home with no update-banner / no required-update-screen; home-quick-share → share-app-sheet with aptoide/direct/cancel; account-share-row opens the same sheet; account footer carries full independence disclaimer; referrals page → referral-share-button opens sheet with the user's referral code (MDJAY3Q3 for the test account); upgrade page shows Monthly £3.99 and Six-month £3.33/month (£19.99) with Aptoide wording. Only caveat: Share.share throws on web dev — the sheet closes cleanly before, but the rejection is uncaught (optional one-line fix noted). On Android native (production target) this is not an issue.",
+  "rca_of_issue": "The 'Share is not supported in this browser' uncaught promise is purely a dev-mode symptom of calling React Native's Share.share from the Expo web preview, where no web polyfill is registered. Root cause: pick() in share-app.tsx awaits Share.share without a try/catch. On production (Android) Share.share resolves normally, so no end-user impact. Mitigation (optional): wrap in try/catch and swallow or toast the error."
+}
