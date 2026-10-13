@@ -73,7 +73,7 @@ export function ExportSheet({ visible, onClose, shifts, label, from, to }: Props
               <View style={styles.warn}>
                 <Ionicons name="shield-checkmark-outline" size={20} color={colors.warning} />
                 <Text style={styles.warnText}>
-                  This {format.toUpperCase()} contains your personal shift and earnings records only. Once shared it leaves DutyConnect's encryption, so
+                  This {format.toUpperCase()} contains your personal shift and earnings records only. Once shared it leaves AfikShift's encryption, so
                   send it only to people or services you trust, avoid shared or work-issued devices, and delete copies you no longer need.
                 </Text>
               </View>

@@ -149,7 +149,7 @@ function ShiftForm({ params, onClear }: { params: FormParams; onClear: () => voi
         <StackHeader title={title} />
         <View style={[styles.content, { gap: spacing.lg }]}>
           <Text style={styles.limitText}>
-            You have {FREE_ACTIVE_SHIFTS} upcoming shifts – the most DutyConnect Free can hold. Your shifts are safe. Complete, cancel or delete one to add another,
+            You have {FREE_ACTIVE_SHIFTS} upcoming shifts – the most AfikShift Free can hold. Your shifts are safe. Complete, cancel or delete one to add another,
             or upgrade for unlimited shifts.
           </Text>
           <ProPrompt testID="shift-limit-pro-prompt" title="Unlimited shifts with Pro" body="Plus full history, multiple payments, reports and sync on all devices." />

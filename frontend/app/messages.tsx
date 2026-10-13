@@ -8,8 +8,8 @@ import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme"
 
 const IOS_POINTS = [
   "Apple does not allow any third-party app to read or forward your SMS or iMessages.",
-  "This is an iOS platform restriction, not a DutyConnect limitation, and no App Store app can work around it.",
-  "Every other DutyConnect feature (shifts, earnings, payments and reports) works fully on iPhone.",
+  "This is an iOS platform restriction, not a AfikShift limitation, and no App Store app can work around it.",
+  "Every other AfikShift feature (shifts, earnings, payments and reports) works fully on iPhone.",
 ];
 
 const ANDROID_POINTS = [

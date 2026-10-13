@@ -24,7 +24,7 @@ const TERMS = [
   `No free trial. Refunds are handled by ${STORE_NAME} under its refund policy.`,
 ];
 const DISCLAIMER =
-  "DutyConnect is an independently developed and operated application. It is not affiliated with, endorsed by, sponsored by or officially connected to the government or any government agency. It is intended for personal shift, earnings and payment tracking and is not an official payroll or workforce management system.";
+  "AfikShift is an independently developed and operated application. It is not affiliated with, endorsed by, sponsored by or officially connected to the government or any government agency. It is intended for personal shift, earnings and payment tracking and is not an official payroll or workforce management system.";
 
 const perMonth = (p: { amount: number; currency: string }) =>
   new Intl.NumberFormat("en-GB", { style: "currency", currency: p.currency }).format(Math.round((p.amount / 6) * 100) / 100);
@@ -84,7 +84,7 @@ export default function Upgrade() {
 
   return (
     <View style={styles.root} testID="upgrade-screen">
-      <StackHeader title="DutyConnect Pro" />
+      <StackHeader title="AfikShift Pro" />
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}>
         <View style={styles.hero}>
           <Text style={styles.heroLabel}>{isPro ? "YOUR PLAN" : "UPGRADE"}</Text>
@@ -168,7 +168,7 @@ export default function Upgrade() {
             <Text style={styles.note}>Prices shown in GBP and include VAT. {STORE_NAME} shows the final price in your local currency before you confirm.</Text>
             {!billingAvailable && (
               <Text style={styles.note} testID="upgrade-unavailable-note">
-                {STORE === "aptoide" ? "Pro subscriptions through Aptoide are being set up and will arrive in an app update. A Google Play version is coming soon." : "Subscriptions are available in the Google Play and Aptoide versions of DutyConnect (not in Expo Go or the web preview)."}
+                {STORE === "aptoide" ? "Pro subscriptions through Aptoide are being set up and will arrive in an app update. A Google Play version is coming soon." : "Subscriptions are available in the Google Play and Aptoide versions of AfikShift (not in Expo Go or the web preview)."}
               </Text>
             )}
           </>

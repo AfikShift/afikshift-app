@@ -89,7 +89,7 @@ export default function Security() {
                 {Platform.OS === "web"
                   ? "Available in the iPhone and Android app."
                   : bioAvailable
-                    ? "Require biometrics when opening DutyConnect."
+                    ? "Require biometrics when opening AfikShift."
                     : "Set up Face ID or a fingerprint in your phone settings first."}
               </Text>
             </View>
@@ -129,7 +129,7 @@ export default function Security() {
           <ListRow testID="security-delete-account-row" icon="trash-outline" title="Delete account" danger onPress={() => setShowDelete(true)} last />
         </Card>
         <Text style={styles.note}>
-          Your data is encrypted in transit and protected by your password. DutyConnect never needs other people's personal details or confidential
+          Your data is encrypted in transit and protected by your password. AfikShift never needs other people's personal details or confidential
           employer information.
         </Text>
       </KeyboardAwareScrollView>

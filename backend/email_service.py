@@ -1,4 +1,4 @@
-"""Email delivery for DutyConnect.
+"""Email delivery for AfikShift.
 
 All outbound email goes through this module. During development it uses the
 Emergent-managed email proxy (EMERGENT_EMAIL_KEY). To migrate to your own
@@ -137,7 +137,7 @@ async def send_email(*, to: str, subject: str, html: str) -> str | None:
         raise HTTPException(status_code=500, detail="Failed to send email")
 
 
-def _code_template(title: str, intro: str, code: str, name: str, where: str = "in the DutyConnect app") -> str:
+def _code_template(title: str, intro: str, code: str, name: str, where: str = "in the AfikShift app") -> str:
     return (
         '<table role="presentation" width="100%" style="background:#F4F5F7"><tr><td style="padding:24px">'
         '<table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;'

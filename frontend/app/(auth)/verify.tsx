@@ -33,7 +33,7 @@ export default function Verify() {
     setLoading(true);
     try {
       await verifyEmail(String(email), code);
-      toast("Email verified — welcome to DutyConnect");
+      toast("Email verified — welcome to AfikShift");
       router.replace("/(tabs)");
     } catch (e) {
       setError((e as Error).message);

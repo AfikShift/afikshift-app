@@ -8,7 +8,7 @@ import { Platform } from "react-native";
 import { request } from "@/src/api";
 import { Entitlement } from "@/src/billing/entitlement";
 
-export const PRODUCTS = { monthly: "dutyconnect_pro_monthly", sixmonth: "dutyconnect_pro_6month" } as const;
+export const PRODUCTS = { monthly: "afikshift_pro_monthly", sixmonth: "afikshift_pro_6month" } as const;
 export type PlanKey = keyof typeof PRODUCTS;
 
 export const billingAvailable = Platform.OS === "android" && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
@@ -75,7 +75,7 @@ export async function loadPrices(): Promise<Prices | null> {
 
 export async function buy(plan: PlanKey, accountRef: string) {
   const m = iap();
-  if (!m) throw new Error(STORE === "aptoide" ? "Aptoide subscriptions are coming in an app update." : "Subscriptions are available in the Google Play version of DutyConnect.");
+  if (!m) throw new Error(STORE === "aptoide" ? "Aptoide subscriptions are coming in an app update." : "Subscriptions are available in the Google Play version of AfikShift.");
   const sku = PRODUCTS[plan];
   const [prod] = await m.fetchProducts({ skus: [sku], type: "subs" });
   const offers: any[] = prod?.subscriptionOfferDetailsAndroid ?? [];

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "DutyConnect",
+    "name": "AfikShift",
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,9 +9,9 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "uk.dutyconnect.app",
+      "bundleIdentifier": "uk.afikshift.app",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Unlock DutyConnect securely with Face ID"
+        "NSFaceIDUsageDescription": "Unlock AfikShift securely with Face ID"
       }
     },
     "android": {
@@ -19,7 +19,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "uk.dutyconnect.app",
+      "package": "uk.afikshift.app",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
@@ -51,7 +51,7 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Unlock DutyConnect securely with Face ID"
+          "faceIDPermission": "Unlock AfikShift securely with Face ID"
         }
       ],
       "@react-native-community/datetimepicker",

@@ -4,15 +4,15 @@ import { Modal, Pressable, Share, Text, View } from "react-native";
 import { fonts, makeStyles, radius, spacing, type, useTheme } from "@/src/theme";
 
 const BASE = process.env.EXPO_PUBLIC_BACKEND_URL;
-export const APTOIDE_URL = "https://dutyconnect.en.aptoide.com"; // placeholder until the listing is live (server copy: APTOIDE_URL)
+export const APTOIDE_URL = "https://afikshift.en.aptoide.com"; // placeholder until the listing is live (server copy: APTOIDE_URL)
 export const DIRECT_URL = `${BASE}/api/public/download/android`; // stable link – always the latest signed APK
-const DISCLAIMER = "DutyConnect is independent and not affiliated with any government agency or employer.";
+const DISCLAIMER = "AfikShift is independent and not affiliated with any government agency or employer.";
 
 /** Share message for either distribution method (optionally with a referral code). */
 export function shareMessage(method: "aptoide" | "direct", code?: string, aptoideUrl = APTOIDE_URL) {
-  const link = method === "aptoide" ? `Download DutyConnect on Aptoide: ${aptoideUrl}` : `Direct download for Android: ${DIRECT_URL}`;
+  const link = method === "aptoide" ? `Download AfikShift on Aptoide: ${aptoideUrl}` : `Direct download for Android: ${DIRECT_URL}`;
   return (
-    `🚀 DutyConnect – Independent Shift & Earnings Tracker\n` +
+    `🚀 AfikShift – Independent Shift & Earnings Tracker\n` +
     `Track Bed Watch, Constant Watch, hospital escorts, enhanced observations, bank shifts, overtime and more.\n\n` +
     `${link}\n` +
     (code ? `Join with my code ${code} – we both get a free month of Pro after your first paid month.\n` : "") +
@@ -46,7 +46,7 @@ export function ShareAppSheet({ visible, onClose, code, aptoideUrl }: { visible:
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} testID="share-app-backdrop" />
       <View style={styles.sheet} testID="share-app-sheet">
-        <Text style={styles.head}>Share DutyConnect</Text>
+        <Text style={styles.head}>Share AfikShift</Text>
         {opt("aptoide", "storefront-outline", "Download via Aptoide", "Share the official Aptoide listing")}
         {opt("direct", "download-outline", "Direct download (Android)", "Share a secure link to the latest app file")}
         <Pressable testID="share-app-cancel" onPress={onClose} style={styles.cancel}>

@@ -32,7 +32,7 @@ class TestDownloadPage:
         assert r.status_code == 200, r.text
         html = r.text
         # Required marketing + CTA text
-        assert "Download DutyConnect on Aptoide" in html
+        assert "Download AfikShift on Aptoide" in html
         assert "Direct Android download coming soon" in html
         assert 'data-testid="download-aptoide"' in html
         assert 'data-testid="download-apk-soon"' in html

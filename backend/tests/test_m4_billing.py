@@ -12,7 +12,7 @@ from conftest import API
 from test_m3b_safeguards import _drop_user, _make_user, _sync
 from test_payments_m3a import _change, _payment, _shift, _uid
 
-MONTHLY, SIX_MONTH = "dutyconnect_pro_monthly", "dutyconnect_pro_6month"
+MONTHLY, SIX_MONTH = "afikshift_pro_monthly", "afikshift_pro_6month"
 
 
 def _env(k):

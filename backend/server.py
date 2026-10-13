@@ -1,4 +1,4 @@
-"""DutyConnect API — Milestone 1: accounts & foundations."""
+"""AfikShift API — Milestone 1: accounts & foundations."""
 import os
 import hmac
 import uuid
@@ -75,7 +75,7 @@ PROFESSIONAL_CATEGORIES = ["Healthcare", "Security", "Emergency services", "Logi
                            "Security Officer", "Other"]
 CURRENCIES = ["GBP", "EUR", "USD"]
 
-app = FastAPI(title="DutyConnect API")
+app = FastAPI(title="AfikShift API")
 api = APIRouter(prefix="/api")
 bearer = HTTPBearer(auto_error=False)
 
@@ -316,7 +316,7 @@ async def current_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(b
 # ---------------------------------------------------------------- auth routes
 @api.get("/")
 async def root():
-    return {"service": "DutyConnect API", "status": "ok"}
+    return {"service": "AfikShift API", "status": "ok"}
 
 
 @api.get("/config")
@@ -864,7 +864,7 @@ async def data_download(user: dict = Depends(current_user)):
     profile = {k: user.get(k) for k in ("email", "full_name", "professional_category", "currency", "hourly_rate",
                                         "notification_prefs", "shift_templates", "specialist_presets", "tax_rate", "plan", "referral_code")}
     subs = await db.subscriptions.find({"user_id": user["id"]}, {"_id": 0, "product_id": 1, "state": 1, "expiry": 1}).to_list(50)
-    return {"format": "DutyConnect personal data v1", "generated_at": now().isoformat(), "profile": profile,
+    return {"format": "AfikShift personal data v1", "generated_at": now().isoformat(), "profile": profile,
             "shifts": shifts, "subscriptions": [{**x, "expiry": x["expiry"].isoformat() if x.get("expiry") else None} for x in subs]}
 
 

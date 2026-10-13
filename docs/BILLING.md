@@ -6,8 +6,8 @@ Nothing below has been done yet; each step needs your approval.
 ## 1. Products to create (Play Console → Monetise → Products → Subscriptions)
 | Product ID (must match exactly) | Base plan | Price | Renewal | Trial |
 |---|---|---|---|---|
-| `dutyconnect_pro_monthly` | `monthly` (auto-renewing, 1 month) | £3.99 | Monthly | None |
-| `dutyconnect_pro_6month` | `sixmonth` (auto-renewing, 6 months) | £19.99 (≈ £3.33/month, saves 17%) | Every 6 months | None |
+| `afikshift_pro_monthly` | `monthly` (auto-renewing, 1 month) | £3.99 | Monthly | None |
+| `afikshift_pro_6month` | `sixmonth` (auto-renewing, 6 months) | £19.99 (≈ £3.33/month, saves 17%) | Every 6 months | None |
 
 **No introductory or founding-member offers** (removed). Standard prices only.
 Recommended settings: grace period **7 days**, account hold **enabled** (up to 30 days), resubscribe **allowed**,

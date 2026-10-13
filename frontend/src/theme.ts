@@ -1,4 +1,4 @@
-// DutyConnect design tokens. Keys match the "color" block of /app/design_guidelines.json.
+// AfikShift design tokens. Keys match the "color" block of /app/design_guidelines.json.
 // Light + dark themes; the device setting decides.
 import { useMemo } from "react";
 import { Appearance, StyleSheet, useColorScheme } from "react-native";

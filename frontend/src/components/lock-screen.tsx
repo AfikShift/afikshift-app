@@ -18,7 +18,7 @@ export function LockScreen() {
     setError(null);
     const enrolled = (await LocalAuthentication.hasHardwareAsync()) && (await LocalAuthentication.isEnrolledAsync());
     if (!enrolled) return unlock(); // biometrics removed from the device — fall back to the signed-in session
-    const r = await LocalAuthentication.authenticateAsync({ promptMessage: "Unlock DutyConnect" });
+    const r = await LocalAuthentication.authenticateAsync({ promptMessage: "Unlock AfikShift" });
     if (r.success) unlock();
     else setError("Authentication was cancelled or failed.");
   }, [unlock]);
@@ -33,7 +33,7 @@ export function LockScreen() {
         <View style={styles.badge}>
           <Ionicons name="lock-closed" size={32} color="#FFFFFF" />
         </View>
-        <Text style={styles.title}>DutyConnect is locked</Text>
+        <Text style={styles.title}>AfikShift is locked</Text>
         <Text style={styles.sub}>{user?.email}</Text>
         {!!error && <Text style={styles.err}>{error}</Text>}
       </View>

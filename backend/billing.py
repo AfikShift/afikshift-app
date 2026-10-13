@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 MODE = os.environ.get("BILLING_MODE", "mock")
 PACKAGE = os.environ.get("ANDROID_PACKAGE", "")
-PRODUCTS = {"dutyconnect_pro_monthly", "dutyconnect_pro_6month"}
+PRODUCTS = {"afikshift_pro_monthly", "afikshift_pro_6month"}
 PASS_DAYS = 7
 # offline Pro pass never outlives the paid period or 7 days
 PRO_STATES = {"SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"}
@@ -122,7 +122,7 @@ class Google:
 
 
 class PurchaseIn(BaseModel):
-    product_id: Literal["dutyconnect_pro_monthly", "dutyconnect_pro_6month"]
+    product_id: Literal["afikshift_pro_monthly", "afikshift_pro_6month"]
     purchase_token: str = Field(min_length=10, max_length=4096)
 
 
@@ -232,7 +232,7 @@ def make_router(db, current_user, logger) -> APIRouter:
     async def verify(body: PurchaseIn, user: dict = Depends(current_user)):
         doc, err = await apply_google_state(body.purchase_token, user["id"])
         if err == "other_account":
-            raise HTTPException(409, "This purchase belongs to a different DutyConnect account")
+            raise HTTPException(409, "This purchase belongs to a different AfikShift account")
         if err:
             raise HTTPException(400, "Purchase could not be verified with Google Play")
         return await summary(user["id"])

@@ -25,7 +25,7 @@ export default function Welcome() {
           <Ionicons name="shield-checkmark" size={30} color={colors.hero} />
         </Animated.View>
         <Animated.Text entering={FadeInDown.delay(80).duration(500)} style={styles.brand}>
-          DutyConnect
+          AfikShift
         </Animated.Text>
         <Animated.Text entering={FadeInDown.delay(140).duration(500)} style={styles.tagline} testID="welcome-positioning">
           Independent Shift &amp; Earnings Tracker

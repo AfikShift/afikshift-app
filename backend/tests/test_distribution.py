@@ -17,6 +17,6 @@ def test_stable_android_link_redirects():
 
 def test_download_page_independent_and_both_options():
     html = requests.get(f"{API}/public/download").text
-    assert "Download DutyConnect on Aptoide" in html
+    assert "Download AfikShift on Aptoide" in html
     assert "download-apk" in html, "direct download button or 'coming soon' note"
     assert "not affiliated with" in html and "Independent Shift &amp; Earnings Tracker" in html

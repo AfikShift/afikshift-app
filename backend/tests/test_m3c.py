@@ -155,7 +155,7 @@ class TestHardening:
 # ---------------------------------------------------------------- public pages
 class TestPublicPages:
     @pytest.mark.parametrize("page,text", [("privacy", "Privacy Policy"), ("terms", "Terms of Use"),
-                                           ("delete-account", "Delete your DutyConnect account")])
+                                           ("delete-account", "Delete your AfikShift account")])
     def test_public_without_login(self, page, text):
         r = requests.get(f"{API}/public/{page}")
         assert r.status_code == 200 and text in r.text

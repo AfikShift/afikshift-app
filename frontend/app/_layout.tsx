@@ -29,7 +29,7 @@ function BillingListener() {
       startBilling(
         (e) => {
           apply(e);
-          toast(e.plan === "pro" ? "Welcome to DutyConnect Pro" : "Purchase recorded");
+          toast(e.plan === "pro" ? "Welcome to AfikShift Pro" : "Purchase recorded");
         },
         (m) => toast(m, "error"),
       ).catch(() => {});

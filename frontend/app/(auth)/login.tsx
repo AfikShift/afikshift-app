@@ -34,7 +34,7 @@ export default function Login() {
   };
 
   return (
-    <AuthShell title="Welcome back" subtitle="DutyConnect – Independent Shift & Earnings Tracker" testID="login-screen">
+    <AuthShell title="Welcome back" subtitle="AfikShift – Independent Shift & Earnings Tracker" testID="login-screen">
       <TextField
         testID="login-email-input"
         label="Email"
@@ -71,7 +71,7 @@ export default function Login() {
       </Link>
       <Button testID="login-submit-button" label="Sign in" onPress={submit} loading={loading} />
       <View style={styles.footer}>
-        <Text style={styles.muted}>New to DutyConnect?</Text>
+        <Text style={styles.muted}>New to AfikShift?</Text>
         <Pressable testID="login-go-register-link" onPress={() => router.replace("/register")} hitSlop={8}>
           <Text style={styles.link}>Create account</Text>
         </Pressable>

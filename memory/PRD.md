@@ -136,3 +136,10 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 - Default store switched to Aptoide (frontend .env EXPO_PUBLIC_STORE=aptoide): upgrade terms/notes name Aptoide; Google Play Billing not loaded. Set back to play for the Google Play build.
 
 - Step A done: permanent package uk.dutyconnect.app; disclaimer in Account footer. Share/Download: ShareAppSheet (Aptoide or direct APK) on Home/Account/Refer a friend; stable /api/public/download/android → APK_URL; /api/public/app-version + Update banner / required-update gate (Aptoide builds). APK_URL empty until hosting chosen. tests/test_distribution.py.
+
+## REBRAND: DutyConnect → AfikShift
+- Customer-visible name now "AfikShift – Independent Shift & Earnings Tracker"; package uk.afikshift.app (android+ios, backend ANDROID_PACKAGE); product IDs afikshift_pro_monthly / afikshift_pro_6month; Aptoide placeholder https://afikshift.en.aptoide.com. Internal names (JWT issuer, logger, preview URL, docs prose) intentionally unchanged.
+
+## Jun 2026 – GitHub backup prep
+- .gitignore hardened (.env files, signing keys, store credentials excluded; .env.example kept)
+- Secrets scan of export-eligible files and git history: clean

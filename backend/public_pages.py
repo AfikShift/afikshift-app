@@ -18,11 +18,11 @@ def cfg() -> dict:
         "site": os.environ.get("PUBLIC_BASE_URL", "https://YOUR-DOMAIN.example"),
         "updated": os.environ.get("POLICY_LAST_UPDATED", "[DATE]"),
         "backup_days": os.environ.get("BACKUP_RETENTION_DAYS", "35"),
-        "aptoide": os.environ.get("APTOIDE_URL", "https://dutyconnect.en.aptoide.com"),
+        "aptoide": os.environ.get("APTOIDE_URL", "https://afikshift.en.aptoide.com"),
     }
 
 
-DISCLAIMER = ("DutyConnect is an independently developed and operated application. It is not affiliated with, endorsed by, "
+DISCLAIMER = ("AfikShift is an independently developed and operated application. It is not affiliated with, endorsed by, "
               "sponsored by or officially connected to the government or any government agency. It is intended for personal "
               "shift, earnings and payment tracking and is not an official payroll or workforce management system.")
 
@@ -46,9 +46,9 @@ footer{max-width:760px;margin:0 auto;padding:0 16px 24px}ul.ticks{list-style:non
 def page(title: str, body: str, script: str = "") -> HTMLResponse:
     nonce = secrets.token_urlsafe(16)
     html = f"""<!doctype html><html lang="en-GB"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)} · DutyConnect</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)} · AfikShift</title>
 <meta name="robots" content="noindex"><style nonce="{nonce}">{CSS}</style></head><body>
-<header><b>DutyConnect – Independent Shift &amp; Earnings Tracker</b><span>Know your shifts. Track your earnings. Stay in control.</span></header><main>{body}</main>
+<header><b>AfikShift – Independent Shift &amp; Earnings Tracker</b><span>Know your shifts. Track your earnings. Stay in control.</span></header><main>{body}</main>
 <footer><section><h2>Get the app</h2><a class="store" href="{escape(cfg()["aptoide"])}" rel="noopener" data-testid="get-on-aptoide">Get it on Aptoide</a>
 <p class="note">Google Play Store release coming soon.</p><p class="note">{DISCLAIMER}</p></section></footer>
 {f'<script nonce="{nonce}">{script}</script>' if script else ''}</body></html>"""
@@ -61,8 +61,8 @@ def privacy_html() -> HTMLResponse:
     c = {k: escape(v) for k, v in cfg().items()}
     body = f"""
 <h1>Privacy Policy</h1><p class="note">Last updated: {c['updated']}</p>
-<section><h2>Who we are</h2><p>DutyConnect is provided by {c['org']} (the "data controller"). Contact: <a href="mailto:{c['email']}">{c['email']}</a>.
-DutyConnect is an independent shift planner, overtime tracker and earnings manager for shift workers. It is not owned, operated or endorsed by any employer or government organisation, and it is not a payroll system.</p></section>
+<section><h2>Who we are</h2><p>AfikShift is provided by {c['org']} (the "data controller"). Contact: <a href="mailto:{c['email']}">{c['email']}</a>.
+AfikShift is an independent shift planner, overtime tracker and earnings manager for shift workers. It is not owned, operated or endorsed by any employer or government organisation, and it is not a payroll system.</p></section>
 <section><h2>What we collect</h2><table>
 <tr><th>Data</th><th>Why</th></tr>
 <tr><td>Name, email address, professional category, currency, default hourly rate, notification preferences</td><td>Your account and earnings estimates</td></tr>
@@ -81,7 +81,7 @@ The app blocks some common patterns (for example reference numbers such as A1234
 <li>Face ID / fingerprint unlock is handled entirely by your phone. We never receive biometric data.</li></ul></section>
 <section><h2>Service providers</h2><p>We use a hosting provider to run the API and database, and an email delivery provider to send verification, password-reset and account-deletion emails (your email address, your name and the message content are passed to it).
 These providers act on our instructions as data processors. [Replace with the named providers before launch.]</p></section>
-<section><h2>Reports you export</h2><p>CSV and PDF reports are created on your phone and contain only your own records. Once you share a report, it is outside DutyConnect's protection, so share it only with people and services you trust.</p></section>
+<section><h2>Reports you export</h2><p>CSV and PDF reports are created on your phone and contain only your own records. Once you share a report, it is outside AfikShift's protection, so share it only with people and services you trust.</p></section>
 <section><h2>How long we keep data</h2><ul>
 <li>Account, shift and payment data: until you delete it or delete your account.</li>
 <li>Deleted shifts: kept in Recently Deleted for 90 days so you can restore them, then permanently removed.</li>
@@ -98,11 +98,11 @@ def terms_html() -> HTMLResponse:
     c = {k: escape(v) for k, v in cfg().items()}
     body = f"""
 <h1>Terms of Use</h1><p class="note">Last updated: {c['updated']}</p>
-<section><h2>The service</h2><p>DutyConnect, provided by {c['org']}, helps you plan your shifts and record your own overtime, extra shifts and payments. Earnings figures are estimates and are not official payroll records. Always check them against your payslip.</p></section>
+<section><h2>The service</h2><p>AfikShift, provided by {c['org']}, helps you plan your shifts and record your own overtime, extra shifts and payments. Earnings figures are estimates and are not official payroll records. Always check them against your payslip.</p></section>
 <section><h2>Your responsibilities</h2><ul><li>Keep your password and device secure.</li>
 <li>Do not enter other people's personal details, operational or security-sensitive information.</li>
 <li>Follow your employer's policies when you use personal apps.</li></ul></section>
-<section><h2>Availability</h2><p>We aim to keep DutyConnect available and your data safe, but we cannot guarantee uninterrupted service. Keep your own exports of important records.</p></section>
+<section><h2>Availability</h2><p>We aim to keep AfikShift available and your data safe, but we cannot guarantee uninterrupted service. Keep your own exports of important records.</p></section>
 <section><h2>Ending your account</h2><p>You can delete your account at any time. See the <a href="privacy">Privacy Policy</a> and the <a href="delete-account">account deletion page</a>.</p></section>
 <section><h2>Contact</h2><p><a href="mailto:{c['email']}">{c['email']}</a></p></section>
 <p class="note">[Have these terms reviewed by a qualified adviser before launch.]</p>"""
@@ -130,7 +130,7 @@ $('again').onclick=()=>{$('step2').classList.add('hidden');$('step1').classList.
 def delete_html() -> HTMLResponse:
     c = {k: escape(v) for k, v in cfg().items()}
     body = f"""
-<h1>Delete your DutyConnect account</h1>
+<h1>Delete your AfikShift account</h1>
 <section><h2>What is deleted</h2><ul>
 <li>Your profile: name, email address, professional category, hourly rate and preferences</li>
 <li>All your shifts (including Recently Deleted), payment records and payment choices</li>
@@ -166,13 +166,13 @@ def download_html() -> HTMLResponse:
     v = app_version()
     apk_block = (f'<a class="store" href="/api/public/download/android" data-testid="download-apk">Direct download for Android (APK) · v{escape(v["latest"])}</a>'
                  '<p class="note">Direct download: open the file, allow "Install unknown apps" for your browser when asked, then tap Install. '
-                 'Updates install over the top and keep your data. Only download DutyConnect from this page or Aptoide.</p>'
+                 'Updates install over the top and keep your data. Only download AfikShift from this page or Aptoide.</p>'
                  if v["apk_available"] else '<p class="note" data-testid="download-apk-soon">Direct Android download coming soon.</p>')
-    body = f"""<h1>🚀 DutyConnect is now available on Aptoide!</h1>
-<section><p>We're working towards bringing DutyConnect to the Google Play Store. In the meantime, you don't have to wait!</p>
-<p>📱 Download DutyConnect through Aptoide and start managing your shifts, tracking your earnings and keeping your payment records organised.</p>
+    body = f"""<h1>🚀 AfikShift is now available on Aptoide!</h1>
+<section><p>We're working towards bringing AfikShift to the Google Play Store. In the meantime, you don't have to wait!</p>
+<p>📱 Download AfikShift through Aptoide and start managing your shifts, tracking your earnings and keeping your payment records organised.</p>
 <ul class="ticks">{pts}</ul>
-<a class="store" href="{escape(c['aptoide'])}" rel="noopener" data-testid="download-aptoide">Download DutyConnect on Aptoide</a>
+<a class="store" href="{escape(c['aptoide'])}" rel="noopener" data-testid="download-aptoide">Download AfikShift on Aptoide</a>
 {apk_block}
 <p class="note">Google Play Store release coming soon!</p></section>
 <section><h2>Plans</h2><p>Free to start. Pro: £3.99 per month, or £19.99 every six months (about £3.33 per month).</p></section>"""

@@ -31,6 +31,21 @@ dist/
 dist
 
 # Environment files (comprehensive coverage)
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+
+# Android signing / store credentials
+*.jks
+*.keystore
+*.p12
+*.p8
+*.key
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
 
 *token.json*
 *credentials.json*

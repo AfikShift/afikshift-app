@@ -47,7 +47,7 @@ export function RequiredUpdateGate({ children }: { children: React.ReactNode }) 
   if (!required) return <>{children}</>;
   return (
     <View style={styles.gate} testID="required-update-screen">
-      <Text style={styles.gateTitle}>Please update DutyConnect</Text>
+      <Text style={styles.gateTitle}>Please update AfikShift</Text>
       <Text style={styles.gateText}>This version is no longer supported. Install version {latest} to continue – your account and records are kept.</Text>
       <Pressable testID="required-update-button" onPress={openDownloadPage} style={styles.gateBtn}>
         <Text style={styles.gateBtnText}>Download update</Text>
