@@ -2,15 +2,23 @@
 import os
 import re
 import time
+import uuid
 import subprocess
 import pytest
 import requests
 from pymongo import MongoClient
+from dotenv import load_dotenv
+
+load_dotenv("/app/backend/.env")
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://dutyconnect-beta.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 MAIN_EMAIL = "delivered+t1@resend.dev"
-MAIN_PASSWORD = "Testpass123"
+# Test passwords come from the environment (backend/.env, git-ignored) - never hardcode them.
+MAIN_PASSWORD = os.environ.get("TEST_MAIN_PASSWORD", "REPLACE_WITH_TEST_MAIN_PASSWORD")
+# Throwaway accounts created by tests; a random per-run value is used if unset.
+TEST_PASSWORD = os.environ.get("TEST_USER_PASSWORD") or f"Tp{uuid.uuid4().hex[:12]}1"
+TEST_PASSWORD_ALT = f"Alt{uuid.uuid4().hex[:12]}2"
 LOG_FILE = "/var/log/supervisor/backend.err.log"
 
 

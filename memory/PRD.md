@@ -143,3 +143,4 @@ no prisoner/operational data. Milestone-based delivery with credit budget approv
 ## Jun 2026 – GitHub backup prep
 - .gitignore hardened (.env files, signing keys, store credentials excluded; .env.example kept)
 - Secrets scan of export-eligible files and git history: clean
+- README.md (build/run guide), frontend/.env.example, backend/.env.example extended; test passwords moved to env (TEST_MAIN_PASSWORD)

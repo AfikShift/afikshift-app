@@ -47,7 +47,7 @@ async def prep():
                 "id": str(uuid.uuid4()),
                 "email": em,
                 "full_name": f"PhaseC Friend {em.split('+')[1].split('@')[0]}",
-                "password_hash": pwd.hash("Testpass123"),
+                "password_hash": pwd.hash(os.environ.get("TEST_MAIN_PASSWORD", "REPLACE_WITH_TEST_MAIN_PASSWORD")),
                 "email_verified": True,
                 "created_at": now(),
                 "currency": "GBP",

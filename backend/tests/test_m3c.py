@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 import requests
-from conftest import API, read_code_for_user
+from conftest import API, read_code_for_user, TEST_PASSWORD, TEST_PASSWORD_ALT
 
 from test_m3b_safeguards import _drop_user, _make_user, _sync
 from test_payments_m3a import _change, _payment, _shift, _uid
@@ -184,7 +184,7 @@ class TestAccountDeletion:
         uid, headers = _make_user(s, mongo_db, "Delete Me")
         s.headers.update(_ip())
         email = mongo_db.users.find_one({"id": uid})["email"]
-        refresh = s.post(f"{API}/auth/login", json={"email": email, "password": "M3bTestPass123"}).json()["refresh_token"]
+        refresh = s.post(f"{API}/auth/login", json={"email": email, "password": TEST_PASSWORD}).json()["refresh_token"]
         _sync(s, headers, [_change(data=_shift(payments=[_payment(amount=50)]))])
         try:
             assert s.post(f"{API}/public/account-deletion/request", json={"email": email}).status_code == 202

@@ -61,7 +61,7 @@
     "/app/backend/tests/test_dutyconnect_backend.py (new)"
   ],
   "success_rate": {"backend": "95.8% (23/24 passed, 1 skipped due to email proxy rate-limit)", "frontend": "100% of critical flows (login, home banner, profile set-rate, account rate reflection, messages, security, signout, tabs)"},
-  "seed_data_creation": "Tests create ephemeral delivered+t1_<tag>@resend.dev accounts and delete them in teardown. Main user delivered+t1@resend.dev password restored to Testpass123, hourly_rate reset to None, login_attempts cleared.",
+  "seed_data_creation": "Tests create ephemeral delivered+t1_<tag>@resend.dev accounts and delete them in teardown. Main user delivered+t1@resend.dev password restored to <TEST_PASSWORD>, hourly_rate reset to None, login_attempts cleared.",
   "retest_needed": true,
   "should_main_agent_self_test": true,
   "context_for_next_testing_agent": "Run pytest with `-n 0` (serial) because class/method tests share the single main user and the login-lockout test will race with concurrent main_user_tokens fixtures otherwise. Email proxy on this environment is heavily rate-limited (~1 req/sec sustained → 429); space email-sending calls or expect transient 502s from register/forgot-password until the backend soft-fail fix lands. Dev codes are in /var/log/supervisor/backend.err.log — grep '[DEV] <kind> code for user <uid>:'. If main user gets locked out: db.login_attempts.delete_many({}) in test_database.",

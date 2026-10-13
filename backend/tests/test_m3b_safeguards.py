@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import bcrypt
 import pytest
-from conftest import API
+from conftest import API, TEST_PASSWORD, TEST_PASSWORD_ALT
 
 from test_payments_m3a import _change, _payment, _shift, _uid
 
@@ -22,7 +22,7 @@ def _sync(api_client, headers, changes=None, since=None):
 def _make_user(api_client, mongo_db, name):
     uid = str(uuid.uuid4())
     email = f"m3b_{uid[:8]}@example.com"
-    pw = "M3bTestPass123"
+    pw = TEST_PASSWORD
     mongo_db.users.insert_one({
         "id": uid, "email": email, "full_name": name,
         "password_hash": bcrypt.hashpw(pw.encode(), bcrypt.gensalt(4)).decode(),

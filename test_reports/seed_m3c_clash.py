@@ -11,7 +11,7 @@ import requests
 
 BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://dutyconnect-beta.preview.emergentagent.com").rstrip("/")
 EMAIL = "delivered+t1@resend.dev"
-PASSWORD = "Testpass123"
+PASSWORD = os.environ.get("TEST_MAIN_PASSWORD", "REPLACE_WITH_TEST_MAIN_PASSWORD")
 
 ACTION = sys.argv[1] if len(sys.argv) > 1 else "edit"  # edit | decision | cleanup
 

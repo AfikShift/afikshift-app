@@ -13,7 +13,7 @@ load_dotenv("/app/backend/.env")
 
 BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://dutyconnect-beta.preview.emergentagent.com")
 EMAIL = "delivered+t1@resend.dev"
-PASSWORD = "Testpass123"
+PASSWORD = os.environ.get("TEST_MAIN_PASSWORD", "REPLACE_WITH_TEST_MAIN_PASSWORD")
 MONGO_URL = "mongodb://localhost:27017"
 DB_NAME = "test_database"
 

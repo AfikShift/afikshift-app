@@ -16,7 +16,7 @@ import time
 import uuid
 import pytest
 import requests
-from conftest import API, MAIN_EMAIL, MAIN_PASSWORD, read_code_for_user
+from conftest import API, MAIN_EMAIL, MAIN_PASSWORD, read_code_for_user, TEST_PASSWORD, TEST_PASSWORD_ALT
 
 
 def _unique_email(tag: str) -> str:
@@ -44,7 +44,7 @@ class TestRegisterVerify:
     def test_register_creates_user_and_returns_generic(self, api_client, mongo_db):
         email = _unique_email("reg")
         r = api_client.post(f"{API}/auth/register",
-                            json={"full_name": "Reg User", "email": email, "password": "Password123"})
+                            json={"full_name": "Reg User", "email": email, "password": TEST_PASSWORD})
         # BACKEND ISSUE: register leaks a 502 if the email proxy is rate-limited,
         # even though the user is successfully created. Should always return 202.
         assert r.status_code in (202, 502), r.text
@@ -58,7 +58,7 @@ class TestRegisterVerify:
 
     def test_register_duplicate_returns_generic(self, api_client):
         r = api_client.post(f"{API}/auth/register",
-                            json={"full_name": "Dup", "email": MAIN_EMAIL, "password": "Password123"})
+                            json={"full_name": "Dup", "email": MAIN_EMAIL, "password": TEST_PASSWORD})
         assert r.status_code == 202  # generic, no enumeration
 
     def test_register_weak_password_rejected(self, api_client):
@@ -68,7 +68,7 @@ class TestRegisterVerify:
 
     def test_full_register_verify_flow_returns_tokens(self, api_client, mongo_db):
         email = _unique_email("verify")
-        pw = "Password123"
+        pw = TEST_PASSWORD
         api_client.post(f"{API}/auth/register", json={"full_name": "V User", "email": email, "password": pw})
         u = mongo_db.users.find_one({"email": email})
         assert u is not None
@@ -85,7 +85,7 @@ class TestRegisterVerify:
 
     def test_verify_invalid_code(self, api_client, mongo_db):
         email = _unique_email("badverify")
-        api_client.post(f"{API}/auth/register", json={"full_name": "BV", "email": email, "password": "Password123"})
+        api_client.post(f"{API}/auth/register", json={"full_name": "BV", "email": email, "password": TEST_PASSWORD})
         u = mongo_db.users.find_one({"email": email})
         r = api_client.post(f"{API}/auth/verify-email", json={"email": email, "code": "000000"})
         assert r.status_code == 400
@@ -108,7 +108,7 @@ class TestLogin:
 
     def test_login_unverified_403(self, api_client, mongo_db):
         email = _unique_email("unv")
-        pw = "Password123"
+        pw = TEST_PASSWORD
         api_client.post(f"{API}/auth/register", json={"full_name": "Unv", "email": email, "password": pw})
         r = api_client.post(f"{API}/auth/login", json={"email": email, "password": pw})
         assert r.status_code == 403
@@ -156,7 +156,7 @@ class TestResetPassword:
     def test_forgot_and_reset_revokes_sessions(self, api_client, mongo_db):
         # Use throwaway user to avoid changing main password permanently
         email = _unique_email("reset")
-        pw = "Password123"
+        pw = TEST_PASSWORD
         api_client.post(f"{API}/auth/register", json={"full_name": "RST", "email": email, "password": pw})
         u = mongo_db.users.find_one({"email": email})
         vcode = read_code_for_user(u["id"], "verify")
@@ -179,7 +179,7 @@ class TestResetPassword:
         rcode = read_code_for_user(u["id"], "reset")
         assert rcode
 
-        new_pw = "NewPassw0rd1"
+        new_pw = TEST_PASSWORD_ALT
         r = api_client.post(f"{API}/auth/reset-password",
                             json={"email": email, "code": rcode, "new_password": new_pw})
         assert r.status_code == 200
@@ -260,12 +260,12 @@ class TestChangePassword:
         assert r.status_code == 400
 
     def test_change_password_success_and_restore(self, api_client, mongo_db):
-        """Change the main user password then restore to Testpass123."""
+        """Change the main user password then restore the original."""
         mongo_db.login_attempts.delete_many({})
         login = api_client.post(f"{API}/auth/login",
                                  json={"email": MAIN_EMAIL, "password": MAIN_PASSWORD}).json()
         headers = {"Authorization": f"Bearer {login['access_token']}"}
-        temp_pw = "TempPassw0rd1"
+        temp_pw = TEST_PASSWORD_ALT
         r = api_client.post(f"{API}/me/change-password", headers=headers,
                             json={"current_password": MAIN_PASSWORD, "new_password": temp_pw})
         assert r.status_code == 200
@@ -299,7 +299,7 @@ class TestDeleteAccount:
     def test_delete_success_removes_user(self, api_client, mongo_db):
         # Use throwaway verified user
         email = _unique_email("del")
-        pw = "Password123"
+        pw = TEST_PASSWORD
         api_client.post(f"{API}/auth/register", json={"full_name": "DelMe", "email": email, "password": pw})
         u = mongo_db.users.find_one({"email": email})
         code = read_code_for_user(u["id"], "verify")

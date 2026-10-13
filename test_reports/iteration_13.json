@@ -35,7 +35,7 @@
     "backend": "100% (3/3 iter13 tests)",
     "frontend": "100% (all 8 review items verified)"
   },
-  "seed_data_creation": "None. Reused existing user delivered+t1@resend.dev / Testpass123.",
+  "seed_data_creation": "None. Reused existing user delivered+t1@resend.dev / <TEST_PASSWORD>.",
   "retest_needed": false,
   "should_main_agent_self_test": false,
   "context_for_next_testing_agent": "Backend tests for Aptoide distribution are at /app/backend/tests/test_distribution_iter13.py (3 tests, all pass). Frontend flows verified on mobile viewport 390x844: welcome tagline 'Independent Shift & Earnings Tracker'; home with no update-banner / no required-update-screen; home-quick-share → share-app-sheet with aptoide/direct/cancel; account-share-row opens the same sheet; account footer carries full independence disclaimer; referrals page → referral-share-button opens sheet with the user's referral code (MDJAY3Q3 for the test account); upgrade page shows Monthly £3.99 and Six-month £3.33/month (£19.99) with Aptoide wording. Only caveat: Share.share throws on web dev — the sheet closes cleanly before, but the rejection is uncaught (optional one-line fix noted). On Android native (production target) this is not an issue.",

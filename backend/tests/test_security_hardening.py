@@ -4,7 +4,7 @@ import uuid
 import pytest
 import requests
 
-from conftest import API, MAIN_EMAIL, MAIN_PASSWORD
+from conftest import API, MAIN_EMAIL, MAIN_PASSWORD, TEST_PASSWORD, TEST_PASSWORD_ALT
 
 
 # ------------------------------------------------------------- helpers
@@ -113,18 +113,18 @@ class TestAntiEnumeration:
         _clear_attempts(mongo_db)
         # existing verified
         r1 = _post("/auth/register",
-                  {"full_name": "Test A", "email": MAIN_EMAIL, "password": "Testpass123"})
+                  {"full_name": "Test A", "email": MAIN_EMAIL, "password": TEST_PASSWORD})
         # existing unverified: create one
         unv_email = f"delivered+unv{uuid.uuid4().hex[:6]}@resend.dev"
         r_create = _post("/auth/register",
-                         {"full_name": "Unv User", "email": unv_email, "password": "Testpass123"})
+                         {"full_name": "Unv User", "email": unv_email, "password": TEST_PASSWORD})
         assert r_create.status_code == 202
         r2 = _post("/auth/register",
-                  {"full_name": "Unv User", "email": unv_email, "password": "Testpass123"})
+                  {"full_name": "Unv User", "email": unv_email, "password": TEST_PASSWORD})
         # brand new
         new_email = f"delivered+new{uuid.uuid4().hex[:6]}@resend.dev"
         r3 = _post("/auth/register",
-                  {"full_name": "New User", "email": new_email, "password": "Testpass123"})
+                  {"full_name": "New User", "email": new_email, "password": TEST_PASSWORD})
 
         for r in (r1, r2, r3):
             assert r.status_code == 202, (r.status_code, r.text)
@@ -168,7 +168,7 @@ class TestAntiEnumeration:
         """403 email_not_verified MUST only occur with the correct password (by design)."""
         _clear_attempts(mongo_db)
         email = f"delivered+unvcheck{uuid.uuid4().hex[:6]}@resend.dev"
-        pw = "Testpass123"
+        pw = TEST_PASSWORD
         r = _post("/auth/register", {"full_name": "Unv Check", "email": email, "password": pw})
         assert r.status_code == 202
 

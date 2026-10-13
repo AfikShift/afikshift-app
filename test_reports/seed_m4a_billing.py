@@ -21,7 +21,7 @@ sys.path.insert(0, "/app/backend")  # noqa: E402
 
 BASE = os.environ["EXPO_PUBLIC_BACKEND_URL"] if "EXPO_PUBLIC_BACKEND_URL" in os.environ else "https://dutyconnect-beta.preview.emergentagent.com"
 EMAIL = "delivered+t1@resend.dev"
-PASSWORD = "Testpass123"
+PASSWORD = os.environ.get("TEST_MAIN_PASSWORD", "REPLACE_WITH_TEST_MAIN_PASSWORD")
 MONGO_URL = "mongodb://localhost:27017"
 DB_NAME = "test_database"
 TOKEN = "tok-ui-1-aaaa"

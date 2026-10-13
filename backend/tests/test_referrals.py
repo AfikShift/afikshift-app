@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 import requests
-from conftest import API
+from conftest import API, TEST_PASSWORD, TEST_PASSWORD_ALT
 
 from test_m3b_safeguards import _drop_user, _make_user
 from test_m4_billing import google, plan, rtdn, verify
@@ -101,7 +101,7 @@ class TestCodes:
         _, ref_h = people()
         code = me(ref_h)["code"]
         email = f"refreg_{_uid()[:8]}@example.com"
-        r = requests.post(f"{API}/auth/register", json={"full_name": "New Friend", "email": email, "password": "RefTestPass123", "referral_code": code})
+        r = requests.post(f"{API}/auth/register", json={"full_name": "New Friend", "email": email, "password": TEST_PASSWORD, "referral_code": code})
         assert r.status_code == 202
         u = mongo_db.users.find_one({"email": email})
         try:
@@ -110,7 +110,7 @@ class TestCodes:
             mongo_db.referrals.delete_many({"friend_id": u["id"]})
             mongo_db.users.delete_one({"id": u["id"]})
         bad = requests.post(f"{API}/auth/register", json={"full_name": "X Friend", "email": f"refbad_{_uid()[:8]}@example.com",
-                                                          "password": "RefTestPass123", "referral_code": "BADCODE1"})
+                                                          "password": TEST_PASSWORD, "referral_code": "BADCODE1"})
         assert bad.status_code == 202, "invalid code never blocks or reveals anything at sign-up"
         mongo_db.users.delete_many({"email": {"$regex": "^refbad_"}})
 
